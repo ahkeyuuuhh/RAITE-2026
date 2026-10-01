@@ -197,6 +197,28 @@ function Login({
                     }
                   }}
                 />
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      title="Demo Teacher"
+                      secondary
+                      onPress={() => {
+                        setEmail('teacher@classassist.demo');
+                        setPassword('ClassAssist-demo-2026!');
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      title="Demo Student"
+                      secondary
+                      onPress={() => {
+                        setEmail('student@classassist.demo');
+                        setPassword('ClassAssist-demo-2026!');
+                      }}
+                    />
+                  </View>
+                </View>
               </>
             )}
             <Text style={s.caption}>
