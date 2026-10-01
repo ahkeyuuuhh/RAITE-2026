@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import { request, dateText, localDate, localDateTime, toISO } from './api';
+import { GEMINI_API_KEY } from './gemini-key';
 import { useApp, useRemote } from './context';
 import {
   Body,
@@ -539,7 +540,7 @@ async function callGeminiDirect(
   message: string,
   history: { role: string; content: string }[] = [],
 ): Promise<{ reply: string; model: string } | null> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  const apiKey = GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) return null;
   const models = ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
   const contents = [
@@ -553,7 +554,7 @@ async function callGeminiDirect(
   for (const model of models) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
+      const timer = setTimeout(() => controller.abort(), 25000);
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
@@ -585,8 +586,8 @@ async function callGeminiDirect(
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) return { reply: text, model };
       }
-    } catch {
-      // try next model
+    } catch (e) {
+      console.warn(`Direct Gemini call failed for ${model}:`, e);
     }
   }
   return null;
@@ -683,7 +684,14 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       let replyModel = 'gemini-3.1-flash-lite';
       let isLive = true;
 
-      try {
+      // 1. Prioritize direct Google Gemini call (avoids tunnel/LAN abort errors)
+      const direct = await callGeminiDirect(text, history);
+      if (direct?.reply) {
+        replyText = direct.reply;
+        replyModel = direct.model;
+        isLive = true;
+      } else {
+        // 2. Fallback to backend API server
         const res = await request<{ reply: string; model: string; live: boolean }>(
           '/ai/chat',
           { message: text, history },
@@ -693,16 +701,6 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
           replyText = res.reply;
           replyModel = res.model || 'gemini-3.1-flash-lite';
           isLive = res.live ?? true;
-        }
-      } catch (backendErr) {
-        // Fallback to direct client-to-Google Gemini API call
-        const direct = await callGeminiDirect(text, history);
-        if (direct?.reply) {
-          replyText = direct.reply;
-          replyModel = direct.model;
-          isLive = true;
-        } else {
-          throw backendErr;
         }
       }
 
@@ -876,6 +874,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 style={{
                   alignSelf: 'flex-end',
                   maxWidth: '85%',
+                  minWidth: 80,
                   backgroundColor: '#007AFF',
                   borderRadius: 20,
                   borderBottomRightRadius: 4,

@@ -7,18 +7,24 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Config } from './types';
 
 function resolveApiUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
-  }
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).manifest?.debuggerHost ||
     (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
     const host = hostUri.split(':')[0];
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    if (
+      host &&
+      host !== 'localhost' &&
+      host !== '127.0.0.1' &&
+      !host.includes('exp.direct') &&
+      !host.includes('ngrok')
+    ) {
       return `http://${host}:3001`;
     }
+  }
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
   return Platform.OS === 'android' ? 'http://10.0.2.2:3001' : 'http://localhost:3001';
 }

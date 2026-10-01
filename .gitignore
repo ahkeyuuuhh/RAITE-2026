@@ -11,3 +11,4 @@ android/
 ios/
 supabase/.temp/
 supabase/.branches/
+*.local.*
