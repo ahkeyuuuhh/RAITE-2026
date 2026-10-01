@@ -13,6 +13,7 @@ import {
   Animated,
   Easing,
   Image,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { randomUUID } from 'expo-crypto';
@@ -68,206 +69,222 @@ export function RemoteState({ error, loading }: { error: string; loading: boolea
     <ActivityIndicator accessibilityLabel="Loading" style={{ padding: 24 }} />
   ) : null;
 }
-export function TeacherHomeScreen() {
-  const { profile, open } = useApp();
-  const { data: bookings, error: bookingsError } = useRemote<Booking[]>('/consultations');
-  const { data: assessments } = useRemote<Assessment[]>('/assessments');
-  const { data: classes } = useRemote<Classroom[]>('/classes');
+const professorAccent = '#811212';
 
-  const upcoming = (bookings || []).filter(
-    (b) => b.status === 'booked' && new Date(b.ends_at) > new Date(),
-  );
-  const drafts = (assessments || []).filter((a) => a.state === 'draft');
-  const published = (assessments || []).filter((a) =>
-    ['approved', 'announced', 'closed'].includes(a.state),
-  );
-  const activeClassrooms = classes || [];
+export function TeacherHomeScreen({ onCreateClass }: { onCreateClass: () => void }) {
+  const { profile, open } = useApp();
+  const { data: assessments } = useRemote<Assessment[]>('/assessments');
+  const { data: classes, error: classesError } = useRemote<Classroom[]>('/classes');
+  const [query, setQuery] = useState('');
+
+  const pendingReviews = new Map<string, number>();
+  for (const assessment of assessments || []) {
+    if (assessment.state === 'draft') {
+      pendingReviews.set(assessment.class_id, (pendingReviews.get(assessment.class_id) || 0) + 1);
+    }
+  }
+
+  // The existing /classes endpoint returns oldest first, so reverse its real data for Recent.
+  const visibleClasses = [...(classes || [])]
+    .reverse()
+    .filter((classroom) =>
+      [classroom.name, classroom.subject, classroom.description]
+        .join(' ')
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()),
+    );
+  const initials =
+    profile.name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'P';
 
   return (
     <View style={s.stack}>
-      {/* Teacher Hero Banner */}
-      <Card style={{ backgroundColor: '#EDF5F0', padding: 22, borderColor: '#D1E7DD', borderWidth: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Pill tone="green">Faculty Dashboard · Manila</Pill>
-          <Icon name="sparkles" color={colors.green} size={24} />
+      <View style={professorStyles.brandRow}>
+        <View style={professorStyles.brand}>
+          <Icon name="book.closed" size={28} color={professorAccent} />
+          <Text style={professorStyles.brandName}>ClassAssist</Text>
         </View>
-        <Text style={{ fontSize: 26, fontWeight: '700', letterSpacing: -0.6, color: '#1B4332', lineHeight: 32 }}>
-          Welcome back,{'\n'}{profile.name}
-        </Text>
-        <Body style={{ marginTop: 6, color: '#2D6A4F' }}>
-          Science & Technology Faculty · Manage class drafts, office consultations, and review student quiz progress.
-        </Body>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Prepare Assessment"
-              onPress={() => open('create-draft')}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Office Availability"
-              secondary
-              onPress={() => open('availability')}
-            />
-          </View>
+        <View accessibilityLabel={profile.name + ' profile'} style={professorStyles.avatar}>
+          <Text style={professorStyles.avatarText}>{initials}</Text>
         </View>
-      </Card>
+      </View>
 
-      {/* 4 Metric Widgets in Squircle Grid */}
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <MetricCard
-          icon="person.2.fill"
-          title="Classes"
-          value={activeClassrooms.length}
-          unit="active"
-          widget={
-            <BarChartWidget
-              width={36}
-              maxHeight={26}
-              heights={[10, 16, 26, 18, 12]}
-              activeIndex={2}
-            />
-          }
-          onPress={() => open('classes')}
-        />
+      <View style={professorStyles.intro}>
+        <Text style={professorStyles.title}>Classroom</Text>
+        <Text style={professorStyles.subtitle}>Manage your classes, classwork, and students.</Text>
+      </View>
 
-        <MetricCard
-          icon="doc.text"
-          title="Drafts"
-          value={drafts.length}
-          unit={drafts.length > 0 ? 'pending' : 'ready'}
-          accentColor={drafts.length > 0 ? '#D97706' : undefined}
-          widget={
-            <ProgressRing
-              size={38}
-              pct={drafts.length > 0 ? 0.75 : 0.15}
-              strokeWidth={4.2}
-              color={drafts.length > 0 ? '#D97706' : colors.ink}
-              trackColor="#E5E5EA"
-            />
-          }
-          onPress={() => open('assistant')}
+      <View style={professorStyles.searchField}>
+        <Icon name="magnifyingglass" size={21} color={colors.muted} />
+        <TextInput
+          accessibilityLabel="Search classes, codes, or sections"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search classes, codes, or sections..."
+          placeholderTextColor={colors.muted}
+          returnKeyType="search"
+          style={professorStyles.searchInput}
         />
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <MetricCard
-          icon="clock"
-          title="Sessions"
-          value={upcoming.length}
-          unit="scheduled"
-          widget={
-            <ProgressRing
-              size={38}
-              pct={upcoming.length > 0 ? 0.6 : 0.1}
-              strokeWidth={4.2}
-              color={colors.ink}
-              trackColor="#E5E5EA"
-            />
-          }
-          onPress={() => open('calendar')}
-        />
+      <Pressable
+        accessibilityRole="button"
+        onPress={onCreateClass}
+        style={({ pressed }) => [professorStyles.createButton, pressed && { opacity: 0.82 }]}
+      >
+        <Icon name="plus" size={22} color="#FFFFFF" />
+        <Text style={professorStyles.createButtonText}>Create new class</Text>
+      </Pressable>
 
-        <MetricCard
-          icon="checkmark.circle.fill"
-          title="Live Tests"
-          value={published.length}
-          unit="published"
-          widget={
-            <SparklineWidget
-              width={42}
-              height={22}
-              color={colors.ink}
-            />
-          }
-        />
-      </View>
-
-      {/* Assessment Drafts Pending Review */}
-      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
-        <Heading>Drafts Requiring Review</Heading>
-        {drafts.length > 0 && <Pill tone="green">{drafts.length} Action Needed</Pill>}
-      </View>
-      {drafts.length === 0 ? (
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Icon name="checkmark.circle.fill" size={24} color={colors.green} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.ink }}>All Drafts Reviewed</Text>
-              <Text style={{ fontSize: 12, color: colors.muted }}>
-                No drafts are currently pending your approval.
-              </Text>
-            </View>
-          </View>
-        </Card>
-      ) : (
-        drafts.slice(0, 3).map((d) => (
-          <Card key={d.id}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Pill tone="gray">{d.class_name || 'Class Draft'}</Pill>
-              <Text style={{ fontSize: 11, color: colors.muted }}>Version {d.version}</Text>
-            </View>
-            <Heading style={{ marginTop: 6 }}>{d.title}</Heading>
-            <Body numberOfLines={2}>
-              {d.lesson || d.announcement || 'Draft created for classroom assessment.'}
-            </Body>
-            <View style={{ marginTop: 8 }}>
-              <Button title="Review & Approve Draft" onPress={() => open('review', d.id)} />
-            </View>
-          </Card>
-        ))
-      )}
-
-      {/* Office Consultation Queue */}
-      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
-        <Heading>Today's Consultation Schedule</Heading>
-        <Text style={s.caption}>Office Hours</Text>
-      </View>
-      <RemoteState error={bookingsError || ''} loading={!bookings && !bookingsError} />
-      {!upcoming.length ? (
-        <Empty
-          title="No student bookings today"
-          body="Confirmed 1-on-1 student consultation appointments will appear in your queue."
-        />
-      ) : (
-        <Card>
-          {upcoming.slice(0, 4).map((b) => (
-            <Row
-              key={b.id}
-              title={b.student_name}
-              detail={`${dateText(b.starts_at)} · ${b.location}`}
-              icon="clock"
-              onPress={() => open('book')}
-            />
-          ))}
-        </Card>
-      )}
-
-      {/* Classes Taught Overview */}
-      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
+      <View style={professorStyles.sectionHeader}>
         <Heading>Your Classes</Heading>
-        <Text style={s.caption}>{activeClassrooms.length} Active</Text>
+        <View style={professorStyles.sortLabel}>
+          <Text style={professorStyles.sortText}>Sort by Recent</Text>
+          <Icon name="chevron.down" size={14} color={colors.muted} />
+        </View>
       </View>
-      <Card>
-        {activeClassrooms.length ? (
-          activeClassrooms.slice(0, 3).map((c) => (
-            <Row
-              key={c.id}
-              title={c.name}
-              detail={`${c.subject} · ${c.member_count} students`}
-              icon="person.2.fill"
-              onPress={() => open('class', c.id)}
-            />
-          ))
-        ) : (
-          <Body>No active classrooms yet. Go to Classes tab to start one.</Body>
-        )}
-      </Card>
+
+      <RemoteState error={classesError || ''} loading={!classes && !classesError} />
+      {visibleClasses.length ? (
+        visibleClasses.map((classroom) => (
+          <Pressable
+            key={classroom.id}
+            accessibilityRole="button"
+            accessibilityLabel={'Open ' + classroom.name}
+            onPress={() => open('class', classroom.id)}
+            style={({ pressed }) => [professorStyles.classCard, pressed && { opacity: 0.88 }]}
+          >
+            <View style={professorStyles.cardTop}>
+              <Text numberOfLines={1} style={professorStyles.subjectBadge}>
+                {classroom.subject}
+              </Text>
+              <Icon name="chevron.right" size={18} color={colors.muted} />
+            </View>
+            <Text style={professorStyles.classTitle}>{classroom.name}</Text>
+            {!!classroom.description && (
+              <Text numberOfLines={1} style={professorStyles.description}>
+                {classroom.description}
+              </Text>
+            )}
+            <View style={professorStyles.cardDivider} />
+            <View style={professorStyles.cardMeta}>
+              <View style={professorStyles.studentCount}>
+                <Icon name="person.2.fill" size={19} color={colors.muted} />
+                <Text style={professorStyles.metaText}>{classroom.member_count} students</Text>
+              </View>
+              {!!pendingReviews.get(classroom.id) && (
+                <View style={professorStyles.pendingReviews}>
+                  <Icon name="doc.text" size={18} color={professorAccent} />
+                  <Text numberOfLines={1} style={professorStyles.pendingText}>
+                    {pendingReviews.get(classroom.id)} pending reviews
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        ))
+      ) : classes && query.trim() ? (
+        <Text style={professorStyles.emptyText}>{'No classes match “' + query.trim() + '”.'}</Text>
+      ) : classes ? (
+        <Text style={professorStyles.emptyText}>No classes yet. Create your first class to get started.</Text>
+      ) : null}
     </View>
   );
 }
 
+const professorStyles = StyleSheet.create({
+  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  brandName: { color: colors.ink, fontSize: 22, fontWeight: '700', letterSpacing: -0.45 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F1F4',
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  intro: { gap: 3, marginTop: 5 },
+  title: { fontSize: 34, lineHeight: 41, fontWeight: '700', letterSpacing: -1.15, color: colors.ink },
+  subtitle: { fontSize: 16, lineHeight: 23, color: colors.muted },
+  searchField: {
+    minWidth: 0,
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+  },
+  searchInput: { flex: 1, minWidth: 0, paddingVertical: 12, fontSize: 15, color: colors.ink },
+  createButton: {
+    minHeight: 58,
+    borderRadius: 16,
+    backgroundColor: professorAccent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: -2,
+  },
+  createButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
+  sortLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sortText: { color: colors.muted, fontSize: 14 },
+  classCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 17,
+    gap: 9,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.035,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  subjectBadge: {
+    maxWidth: '82%',
+    overflow: 'hidden',
+    borderRadius: 9,
+    backgroundColor: '#F8E9E9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    color: professorAccent,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  classTitle: { color: colors.ink, fontSize: 18, lineHeight: 24, fontWeight: '700', letterSpacing: -0.35 },
+  description: { color: colors.muted, fontSize: 14, lineHeight: 19 },
+  cardDivider: { height: 1, backgroundColor: colors.line, marginTop: 1 },
+  cardMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    minHeight: 24,
+  },
+  studentCount: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
+  metaText: { color: colors.muted, fontSize: 14 },
+  pendingReviews: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 7, flex: 1, minWidth: 0 },
+  pendingText: { color: professorAccent, fontSize: 13, flexShrink: 1 },
+  emptyText: { color: colors.muted, fontSize: 15, lineHeight: 22, paddingVertical: 14 },
+});
 export function StudentHomeScreen() {
   const { open } = useApp();
   const [showQuizGenerator, setShowQuizGenerator] = useState(false);
@@ -1954,7 +1971,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
 
 export function Home() {
   const { profile } = useApp();
-  return profile.role === 'teacher' ? <TeacherHomeScreen /> : <StudentHomeScreen />;
+  return profile.role === 'teacher' ? <TeacherHomeScreen onCreateClass={() => {}} /> : <StudentHomeScreen />;
 }
 export function Classes() {
   const { profile, open, act, busy } = useApp();

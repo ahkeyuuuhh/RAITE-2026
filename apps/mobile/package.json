@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start --port 8082",
+    "start": "expo start --go --lan --port 8082",
     "tunnel": "expo start --tunnel",
     "android": "expo start --android --port 8082",
     "ios": "expo start --ios --port 8082",

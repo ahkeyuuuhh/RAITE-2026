@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,40 +8,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  Animated,
-  Easing,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Button,
-  Field,
-  Pill,
-  Icon,
-  colors,
-  s,
-} from './ui';
+import { Icon, colors } from './ui';
 import type { Config, Profile } from './types';
-import { authClient, request } from './api';
-import { CodeSlots } from './code-slots';
-import { GlideSelect, type SelectOption } from './glide-select';
-import { DEFAULT_PH_SCHOOLS, fetchPhilippineSchools } from './schools-api';
+import { loginAccount, registerAccount } from './api';
 
 export type UserRole = 'student' | 'teacher';
 
-export type FlowScreen =
-  | 'role_select' // Screen 1: Ask user if Student or Teacher + Login top right
-  | 'onboarding_details' // Screen 2: Ask user/teacher details
-  | 'email_entry' // Screen 3: Enter email
-  | 'otp_verify' // Screen 4: Verify OTP
-  | 'registration' // Screen 5: Registration details (password, join code, etc.)
-  | 'welcome' // Welcome celebratory screen
-  | 'login'; // Existing user login screen
+type FlowScreen = 'login' | 'register_account' | 'role_select' | 'onboarding';
+
+const ACCENT = '#811212';
 
 export function AuthFlow({
-  config,
   error: serverError,
-  retry,
   onSignedIn,
 }: {
   config?: Config;
@@ -49,1389 +30,992 @@ export function AuthFlow({
   retry: () => void;
   onSignedIn: (p: Profile) => void;
 }) {
-  const [currentScreen, setCurrentScreen] = useState<FlowScreen>('role_select');
-  const [role, setRole] = useState<UserRole>('student');
+  const [currentScreen, setCurrentScreen] = useState<FlowScreen>('login');
 
-  // Screen 2 details:
-  const [fullName, setFullName] = useState('');
-  const [school, setSchool] = useState('University of the Philippines Diliman');
-  const [schoolOptions, setSchoolOptions] = useState<SelectOption[]>(DEFAULT_PH_SCHOOLS);
-  const [isLoadingSchools, setIsLoadingSchools] = useState(false);
-  const [studentId, setStudentId] = useState('');
-  const [gradeLevel, setGradeLevel] = useState('Grade 10');
-  const [section, setSection] = useState('Newton');
-  const [learningGoal, setLearningGoal] = useState('Science & Math');
-
-  // Teacher details:
-  const [honorific, setHonorific] = useState('Ms.');
-  const [department, setDepartment] = useState('Science & Technology');
-  const [subject, setSubject] = useState('Integrated Science');
-  const [employeeId, setEmployeeId] = useState('');
-  const [officeRoom, setOfficeRoom] = useState('Room 204');
-
-  // Screen 3:
-  const [email, setEmail] = useState('');
-
-  // Screen 4:
-  const [otp, setOtp] = useState('');
-  const [resendTimer, setResendTimer] = useState(45);
-  const [otpError, setOtpError] = useState('');
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-
-  // Screen 5:
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [classCode, setClassCode] = useState('NEWTON2026');
-  const [agreedTerms, setAgreedTerms] = useState(true);
-
-  // Login screen state:
+  // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginBusy, setLoginBusy] = useState(false);
-  const [loginError, setLoginError] = useState(serverError);
+  const [loginError, setLoginError] = useState(serverError || '');
 
-  // Screen Transition Animation values (Apple Push & Pop style)
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  // Register - Account details
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [accountError, setAccountError] = useState('');
 
-  const navigateTo = useCallback(
-    (nextScreen: FlowScreen, dir: 'forward' | 'backward' = 'forward') => {
-      const offset = dir === 'forward' ? 24 : -24;
-      fadeAnim.setValue(0);
-      slideAnim.setValue(offset);
-      setCurrentScreen(nextScreen);
+  // Register - Role selection
+  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
 
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 240,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 80,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    },
-    [fadeAnim, slideAnim]
-  );
+  // Register - Onboarding fields
+  const [school, setSchool] = useState('University of the Philippines Diliman');
+  const [studentId, setStudentId] = useState('');
+  const [course, setCourse] = useState('BS Computer Science');
+  const [yearLevel, setYearLevel] = useState('2nd Year');
+  const [facultyId, setFacultyId] = useState('');
+  const [department, setDepartment] = useState('Department of Computer Science');
+  const [onboardingBusy, setOnboardingBusy] = useState(false);
+  const [onboardingError, setOnboardingError] = useState('');
 
-  const [devLoadingRole, setDevLoadingRole] = useState<'teacher' | 'student' | null>(null);
+  // =========================================================================
+  // ACTIONS
+  // =========================================================================
 
-  const enterDevAccount = useCallback(
-    async (targetRole: 'teacher' | 'student') => {
-      setDevLoadingRole(targetRole);
-      const email =
-        targetRole === 'teacher' ? 'teacher@classassist.demo' : 'student@classassist.demo';
-      const password = 'ClassAssist-demo-2026!';
+  const handleLogin = async (emailOverride?: string, passwordOverride?: string) => {
+    const emailToUse = (emailOverride ?? loginEmail).trim();
+    const passwordToUse = passwordOverride ?? loginPassword;
 
-      try {
-        const client = authClient();
-        if (client?.auth) {
-          const { data, error } = await client.auth.signInWithPassword({
-            email,
-            password,
-          });
-          if (!error && data?.session) {
-            const p = await request<Profile>('/me');
-            onSignedIn(p);
-            return;
-          }
-        }
-      } catch (e) {
-        console.log('Dev mode live sign-in fallback:', e);
-      } finally {
-        setDevLoadingRole(null);
-      }
-
-      // Direct fallback if offline or backend is re-authenticating
-      const fallbackProfile: Profile =
-        targetRole === 'teacher'
-          ? {
-              id: 'eafbb038-ede7-4687-b798-15fddd2fa7c0',
-              name: 'Ms. Biel Santos',
-              role: 'teacher',
-              school_id: '00000000-0000-4000-8000-000000000001',
-            }
-          : {
-              id: '3b079fb4-9c6d-4607-b283-07c53f437721',
-              name: 'Alex Reyes',
-              role: 'student',
-              school_id: '00000000-0000-4000-8000-000000000001',
-            };
-      onSignedIn(fallbackProfile);
-    },
-    [onSignedIn]
-  );
-
-  // Role Card micro-spring scales
-  const studentScale = useRef(new Animated.Value(1)).current;
-  const teacherScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(studentScale, {
-        toValue: role === 'student' ? 1.015 : 0.99,
-        friction: 6,
-        tension: 100,
-        useNativeDriver: true,
-      }),
-      Animated.spring(teacherScale, {
-        toValue: role === 'teacher' ? 1.015 : 0.99,
-        friction: 6,
-        tension: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [role, studentScale, teacherScale]);
-
-  // Celebratory bounce on Welcome screen
-  const welcomeIconScale = useRef(new Animated.Value(0.4)).current;
-  useEffect(() => {
-    if (currentScreen === 'welcome') {
-      welcomeIconScale.setValue(0.4);
-      Animated.spring(welcomeIconScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 70,
-        useNativeDriver: true,
-      }).start();
+    setLoginError('');
+    if (!emailToUse) {
+      setLoginError('Email is required.');
+      return;
     }
-  }, [currentScreen, welcomeIconScale]);
+    if (!passwordToUse) {
+      setLoginError('Password is required.');
+      return;
+    }
 
-  // Fetch live Philippine schools list from API
-  useEffect(() => {
-    let isMounted = true;
-    setIsLoadingSchools(true);
-    fetchPhilippineSchools()
-      .then((schools) => {
-        if (isMounted && schools.length > 0) {
-          setSchoolOptions(schools);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (isMounted) setIsLoadingSchools(false);
+    setLoginBusy(true);
+    try {
+      const res = await loginAccount({ email: emailToUse, password: passwordToUse });
+      if (res.ok && res.profile) {
+        onSignedIn(res.profile);
+      } else {
+        setLoginError('Could not verify your credentials. Please try again.');
+      }
+    } catch (e) {
+      setLoginError((e as Error).message || 'Invalid email or password.');
+    } finally {
+      setLoginBusy(false);
+    }
+  };
+
+  const handleContinueAccount = () => {
+    setAccountError('');
+    if (!firstName.trim()) {
+      setAccountError('First name is required.');
+      return;
+    }
+    if (!lastName.trim()) {
+      setAccountError('Last name is required.');
+      return;
+    }
+    if (!registerEmail.trim() || !registerEmail.includes('@')) {
+      setAccountError('Please enter a valid email address.');
+      return;
+    }
+    if (registerPassword.length < 6) {
+      setAccountError('Password must be at least 6 characters.');
+      return;
+    }
+    if (registerPassword !== confirmPassword) {
+      setAccountError('Passwords do not match.');
+      return;
+    }
+
+    setCurrentScreen('role_select');
+  };
+
+  const handleFinishOnboarding = async () => {
+    setOnboardingError('');
+    if (!school.trim()) {
+      setOnboardingError('School is required.');
+      return;
+    }
+
+    setOnboardingBusy(true);
+    try {
+      const res = await registerAccount({
+        email: registerEmail.trim(),
+        password: registerPassword,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        role: selectedRole,
+        school: school.trim(),
+        studentId: studentId.trim(),
+        course: course.trim(),
+        yearLevel: yearLevel.trim(),
+        facultyId: facultyId.trim(),
+        department: department.trim(),
       });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
-  // OTP resend countdown:
-  useEffect(() => {
-    if (currentScreen !== 'otp_verify' || resendTimer <= 0) return;
-    const interval = setInterval(() => {
-      setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [currentScreen, resendTimer]);
+      if (res.ok && res.profile) {
+        onSignedIn(res.profile);
+      } else {
+        setOnboardingError('Could not complete registration. Please try again.');
+      }
+    } catch (e) {
+      const raw = (e as Error)?.message || '';
+      if (
+        !raw ||
+        raw.includes('Fetch') ||
+        raw.includes('canceled') ||
+        raw.includes('cancelled') ||
+        raw.includes('Network') ||
+        raw.includes('connection') ||
+        raw.includes('Abort')
+      ) {
+        setOnboardingError('Could not create your account. Please check your connection and try again.');
+      } else {
+        setOnboardingError(raw);
+      }
+    } finally {
+      setOnboardingBusy(false);
+    }
+  };
 
-  const stepNumber =
-    currentScreen === 'onboarding_details'
-      ? 1
-      : currentScreen === 'email_entry'
-        ? 2
-        : currentScreen === 'otp_verify'
-          ? 3
-          : currentScreen === 'registration'
-            ? 4
-            : 0;
+  // Demo shortcut login
+  const handleQuickDemo = (role: UserRole) => {
+    const email = role === 'teacher' ? 'teacher@classassist.demo' : 'student@classassist.demo';
+    const pwd = 'ClassAssist-demo-2026!';
+    setLoginEmail(email);
+    setLoginPassword(pwd);
+    handleLogin(email, pwd);
+  };
 
+  // =========================================================================
+  // SUB-RENDERERS
+  // =========================================================================
+
+  const renderBrandHeader = (showBack = false, onBack?: () => void) => (
+    <View style={styles.brandRow}>
+      {showBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={onBack}
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+        >
+          <Icon name="arrow.left" size={20} color={colors.ink} />
+        </Pressable>
+      ) : (
+        <View style={styles.brand}>
+          <Icon name="book.closed" size={26} color={ACCENT} />
+          <Text style={styles.brandName}>Aider</Text>
+        </View>
+      )}
+
+      {showBack && (
+        <View style={styles.brand}>
+          <Icon name="book.closed" size={22} color={ACCENT} />
+          <Text style={styles.brandNameSmall}>Aider</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  // -------------------------------------------------------------------------
+  // SCREEN 1: LOGIN
+  // -------------------------------------------------------------------------
+  if (currentScreen === 'login') {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderBrandHeader()}
+
+            <View style={styles.headerBlock}>
+              <Text style={styles.title}>Welcome back</Text>
+              <Text style={styles.subtitle}>Sign in to continue to your classroom.</Text>
+            </View>
+
+            {loginError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{loginError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email address</Text>
+                <TextInput
+                  accessibilityLabel="Email address"
+                  value={loginEmail}
+                  onChangeText={(val) => {
+                    setLoginEmail(val);
+                    if (loginError) setLoginError('');
+                  }}
+                  placeholder="name@school.edu"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordWrap}>
+                  <TextInput
+                    accessibilityLabel="Password"
+                    value={loginPassword}
+                    onChangeText={(val) => {
+                      setLoginPassword(val);
+                      if (loginError) setLoginError('');
+                    }}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showLoginPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={() => handleLogin()}
+                    style={styles.passwordInput}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={showLoginPassword ? 'Hide password' : 'Show password'}
+                    onPress={() => setShowLoginPassword(!showLoginPassword)}
+                    style={styles.eyeButton}
+                  >
+                    <Icon
+                      name={showLoginPassword ? 'eye.slash' : 'eye'}
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sign in"
+                disabled={loginBusy}
+                onPress={() => handleLogin()}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && { opacity: 0.85 },
+                  loginBusy && { opacity: 0.6 },
+                ]}
+              >
+                {loginBusy ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Sign in</Text>
+                )}
+              </Pressable>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchText}>Don't have an account?</Text>
+                <Pressable
+                  onPress={() => {
+                    setLoginError('');
+                    setCurrentScreen('register_account');
+                  }}
+                >
+                  <Text style={styles.switchLink}> Create account</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Quick Demo Shortcuts for Hackathon Evaluation */}
+            <View style={styles.demoSection}>
+              <Text style={styles.demoTitle}>Quick Demo Accounts</Text>
+              <View style={styles.demoRow}>
+                <Pressable
+                  disabled={loginBusy}
+                  onPress={() => handleQuickDemo('teacher')}
+                  style={({ pressed }) => [styles.demoChip, pressed && { opacity: 0.7 }]}
+                >
+                  <Icon name="book.closed" size={16} color={ACCENT} />
+                  <Text style={styles.demoChipText}>Professor Demo</Text>
+                </Pressable>
+                <Pressable
+                  disabled={loginBusy}
+                  onPress={() => handleQuickDemo('student')}
+                  style={({ pressed }) => [styles.demoChip, pressed && { opacity: 0.7 }]}
+                >
+                  <Icon name="graduationcap.fill" size={16} color={colors.ink} />
+                  <Text style={styles.demoChipText}>Student Demo</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // SCREEN 2: CREATE ACCOUNT
+  // -------------------------------------------------------------------------
+  if (currentScreen === 'register_account') {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderBrandHeader(true, () => setCurrentScreen('login'))}
+
+            <View style={styles.stepIndicator}>
+              <Text style={styles.stepText}>Step 1 of 3</Text>
+            </View>
+
+            <View style={styles.headerBlock}>
+              <Text style={styles.title}>Create your account</Text>
+              <Text style={styles.subtitle}>Set up Aider for your classes.</Text>
+            </View>
+
+            {accountError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{accountError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.form}>
+              <View style={styles.rowInputs}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>First name</Text>
+                  <TextInput
+                    accessibilityLabel="First name"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="Juan"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="words"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>Last name</Text>
+                  <TextInput
+                    accessibilityLabel="Last name"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Dela Cruz"
+                    autoCapitalize="words"
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email address</Text>
+                <TextInput
+                  accessibilityLabel="Email address"
+                  value={registerEmail}
+                  onChangeText={setRegisterEmail}
+                  placeholder="name@school.edu"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordWrap}>
+                  <TextInput
+                    accessibilityLabel="Password"
+                    value={registerPassword}
+                    onChangeText={setRegisterPassword}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showRegisterPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.passwordInput}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowRegisterPassword(!showRegisterPassword)}
+                    style={styles.eyeButton}
+                  >
+                    <Icon
+                      name={showRegisterPassword ? 'eye.slash' : 'eye'}
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Confirm password</Text>
+                <View style={styles.passwordWrap}>
+                  <TextInput
+                    accessibilityLabel="Confirm password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Re-enter password"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.passwordInput}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.eyeButton}
+                  >
+                    <Icon
+                      name={showConfirmPassword ? 'eye.slash' : 'eye'}
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Continue"
+                onPress={handleContinueAccount}
+                style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.primaryButtonText}>Continue</Text>
+              </Pressable>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchText}>Already have an account?</Text>
+                <Pressable onPress={() => setCurrentScreen('login')}>
+                  <Text style={styles.switchLink}> Sign in</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // SCREEN 3: ROLE SELECTION
+  // -------------------------------------------------------------------------
+  if (currentScreen === 'role_select') {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {renderBrandHeader(true, () => setCurrentScreen('register_account'))}
+
+          <View style={styles.stepIndicator}>
+            <Text style={styles.stepText}>Step 2 of 3</Text>
+          </View>
+
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>How will you use Aider?</Text>
+            <Text style={styles.subtitle}>Choose your workspace role to personalize your experience.</Text>
+          </View>
+
+          <View style={styles.cardsStack}>
+            {/* Student Card */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Student role"
+              onPress={() => setSelectedRole('student')}
+              style={({ pressed }) => [
+                styles.roleCard,
+                selectedRole === 'student' && styles.roleCardActive,
+                pressed && { opacity: 0.9 },
+              ]}
+            >
+              <View style={styles.roleCardTop}>
+                <View
+                  style={[
+                    styles.roleIconBox,
+                    selectedRole === 'student' && styles.roleIconBoxActive,
+                  ]}
+                >
+                  <Icon
+                    name="graduationcap.fill"
+                    size={24}
+                    color={selectedRole === 'student' ? ACCENT : colors.ink}
+                  />
+                </View>
+                {selectedRole === 'student' && (
+                  <View style={styles.selectedCheck}>
+                    <Icon name="checkmark" size={16} color="#FFFFFF" />
+                  </View>
+                )}
+              </View>
+              <Text style={styles.roleTitle}>Student</Text>
+              <Text style={styles.roleDesc}>
+                Join classes, review lessons, and stay on track.
+              </Text>
+            </Pressable>
+
+            {/* Professor Card */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Professor role"
+              onPress={() => setSelectedRole('teacher')}
+              style={({ pressed }) => [
+                styles.roleCard,
+                selectedRole === 'teacher' && styles.roleCardActive,
+                pressed && { opacity: 0.9 },
+              ]}
+            >
+              <View style={styles.roleCardTop}>
+                <View
+                  style={[
+                    styles.roleIconBox,
+                    selectedRole === 'teacher' && styles.roleIconBoxActive,
+                  ]}
+                >
+                  <Icon
+                    name="book.closed"
+                    size={24}
+                    color={selectedRole === 'teacher' ? ACCENT : colors.ink}
+                  />
+                </View>
+                {selectedRole === 'teacher' && (
+                  <View style={styles.selectedCheck}>
+                    <Icon name="checkmark" size={16} color="#FFFFFF" />
+                  </View>
+                )}
+              </View>
+              <Text style={styles.roleTitle}>Professor</Text>
+              <Text style={styles.roleDesc}>
+                Manage classes, classwork, and students.
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={{ marginTop: 24 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Continue"
+              onPress={() => setCurrentScreen('onboarding')}
+              style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.primaryButtonText}>Continue</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // SCREEN 4A & 4B: ONBOARDING (ROLE SPECIFIC)
+  // -------------------------------------------------------------------------
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
         >
-          <Animated.View
-            style={[
-              styles.animatedContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateX: slideAnim }],
-              },
-            ]}
-          >
-            {/* ========================================================= */}
-            {/* SCREEN 1: LANDING & ROLE SELECTION (Student or Teacher)   */}
-            {/* ========================================================= */}
-            {currentScreen === 'role_select' && (
-              <View style={styles.screenBody}>
-                {/* Top Navigation Bar: Brand on Left, Login on Right */}
-                <View style={styles.navBar}>
-                  <View style={styles.brandRow}>
-                    <Icon name="sparkles" size={22} color={colors.ink} />
-                    <Text style={styles.brandText}>ClassAssist</Text>
-                  </View>
+          {renderBrandHeader(true, () => setCurrentScreen('role_select'))}
 
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Log in"
-                    onPress={() => {
-                      setLoginError('');
-                      navigateTo('login', 'forward');
-                    }}
-                    style={({ pressed }) => [styles.navLoginButton, pressed && { opacity: 0.5 }]}
-                  >
-                    <Text style={styles.navLoginText}>Log in</Text>
-                    <Icon name="chevron.right" size={14} color={colors.blue} />
-                  </Pressable>
-                </View>
+          <View style={styles.stepIndicator}>
+            <Text style={styles.stepText}>Step 3 of 3</Text>
+          </View>
 
-                {/* Hero Typography */}
-                <View style={styles.headerBlock}>
-                  <Text style={styles.heroTitle}>Welcome</Text>
-                  <Text style={styles.heroSubtitle}>
-                    Choose how you will be using ClassAssist to personalize your classroom experience.
-                  </Text>
-                </View>
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>
+              {selectedRole === 'student'
+                ? 'Set up your student profile'
+                : 'Set up your professor profile'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {selectedRole === 'student'
+                ? 'Provide your academic details to connect with your classes.'
+                : 'Provide your faculty details to organize your classes.'}
+            </Text>
+          </View>
 
-                {/* Role Options */}
-                <View style={styles.rolesStack}>
-                  {/* Student Option */}
-                  <Animated.View style={{ transform: [{ scale: studentScale }] }}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="I am a Student"
-                      onPress={() => setRole('student')}
-                      style={({ pressed }) => [
-                        styles.roleItem,
-                        role === 'student' && styles.roleItemActive,
-                        pressed && { opacity: 0.8 },
-                      ]}
-                    >
-                      <Icon
-                        name="graduationcap.fill"
-                        size={28}
-                        color={role === 'student' ? colors.blue : colors.ink}
-                      />
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <View style={styles.roleItemHeader}>
-                          <Text style={styles.roleItemTitle}>I’m a Student</Text>
-                          <View
-                            style={[
-                              styles.radioCircle,
-                              role === 'student' && styles.radioCircleActive,
-                            ]}
-                          >
-                            {role === 'student' && <View style={styles.radioDot} />}
-                          </View>
-                        </View>
-                        <Text style={styles.roleItemDesc}>
-                          Book teacher consultations, review classroom lessons, and take assigned quizzes.
-                        </Text>
-                      </View>
-                    </Pressable>
-                  </Animated.View>
+          {onboardingError ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{onboardingError}</Text>
+            </View>
+          ) : null}
 
-                  {/* Teacher Option */}
-                  <Animated.View style={{ transform: [{ scale: teacherScale }] }}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="I am a Teacher"
-                      onPress={() => setRole('teacher')}
-                      style={({ pressed }) => [
-                        styles.roleItem,
-                        role === 'teacher' && styles.roleItemActiveGreen,
-                        pressed && { opacity: 0.8 },
-                      ]}
-                    >
-                      <Icon
-                        name="person.2.fill"
-                        size={28}
-                        color={role === 'teacher' ? colors.green : colors.ink}
-                      />
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <View style={styles.roleItemHeader}>
-                          <Text style={styles.roleItemTitle}>I’m a Teacher</Text>
-                          <View
-                            style={[
-                              styles.radioCircle,
-                              role === 'teacher' && styles.radioCircleActiveGreen,
-                            ]}
-                          >
-                            {role === 'teacher' && <View style={[styles.radioDot, { backgroundColor: colors.green }]} />}
-                          </View>
-                        </View>
-                        <Text style={styles.roleItemDesc}>
-                          Publish assessment drafts, set office consultation rules, and review submissions.
-                        </Text>
-                      </View>
-                    </Pressable>
-                  </Animated.View>
-                </View>
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>School / Institution</Text>
+              <TextInput
+                accessibilityLabel="School"
+                value={school}
+                onChangeText={setSchool}
+                placeholder="University of the Philippines Diliman"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+            </View>
 
-                {/* Bottom Action */}
-                <View style={styles.footerSection}>
-                  <Button
-                    title={`Continue as ${role === 'student' ? 'Student' : 'Teacher'}`}
-                    onPress={() => navigateTo('onboarding_details', 'forward')}
-                  />
-                  <View style={styles.switchRow}>
-                    <Text style={styles.captionText}>Already have an account?</Text>
-                    <Pressable onPress={() => navigateTo('login', 'forward')}>
-                      <Text style={styles.linkText}>Sign in</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                {/* Dev Mode One-Tap Entry */}
-                <View style={styles.devSection}>
-                  <View style={styles.devDividerRow}>
-                    <View style={styles.devDividerLine} />
-                    <View style={styles.devPill}>
-                      <Icon name="sparkles" size={12} color="#6366F1" />
-                      <Text style={styles.devPillText}>DEV MODE FAST ACCESS</Text>
-                    </View>
-                    <View style={styles.devDividerLine} />
-                  </View>
-
-                  <View style={styles.devCardsStack}>
-                    {/* Teacher Dev Card */}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dev Mode: Enter as Teacher"
-                      disabled={devLoadingRole !== null}
-                      onPress={() => enterDevAccount('teacher')}
-                      style={({ pressed }) => [
-                        styles.devAccountCard,
-                        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-                      ]}
-                    >
-                      <View style={styles.devAccountContent}>
-                        <View style={styles.devIconBadgeTeacher}>
-                          <Icon name="person.2.fill" size={20} color={colors.green} />
-                        </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={styles.devAccountName}>Teacher Dev Account</Text>
-                            <View style={styles.devTagGreen}>
-                              <Text style={styles.devTagGreenText}>Faculty</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.devAccountRole}>Ms. Biel Santos · Science Dept</Text>
-                        </View>
-                        {devLoadingRole === 'teacher' ? (
-                          <ActivityIndicator size="small" color={colors.green} />
-                        ) : (
-                          <View style={styles.devArrow}>
-                            <Icon name="arrow.right" size={14} color={colors.green} />
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-
-                    {/* Student Dev Card */}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dev Mode: Enter as Student"
-                      disabled={devLoadingRole !== null}
-                      onPress={() => enterDevAccount('student')}
-                      style={({ pressed }) => [
-                        styles.devAccountCard,
-                        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-                      ]}
-                    >
-                      <View style={styles.devAccountContent}>
-                        <View style={styles.devIconBadgeStudent}>
-                          <Icon name="graduationcap.fill" size={20} color={colors.blue} />
-                        </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={styles.devAccountName}>Student Dev Account</Text>
-                            <View style={styles.devTagBlue}>
-                              <Text style={styles.devTagBlueText}>Scholar</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.devAccountRole}>Alex Reyes · Grade 10 Newton</Text>
-                        </View>
-                        {devLoadingRole === 'student' ? (
-                          <ActivityIndicator size="small" color={colors.blue} />
-                        ) : (
-                          <View style={styles.devArrow}>
-                            <Icon name="arrow.right" size={14} color={colors.blue} />
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* ========================================================= */}
-            {/* SCREEN 2: ONBOARDING DETAILS (Role-specific Information)  */}
-            {/* ========================================================= */}
-            {currentScreen === 'onboarding_details' && (
-              <View style={styles.screenBody}>
-                <StepNavBar
-                  step={stepNumber}
-                  total={4}
-                  onBack={() => navigateTo('role_select', 'backward')}
-                />
-
-                <View style={styles.headerBlock}>
-                  <Text style={styles.screenTitle}>
-                    {role === 'student' ? 'Student Profile' : 'Teacher Profile'}
-                  </Text>
-                  <Text style={styles.heroSubtitle}>
-                    {role === 'student'
-                      ? 'Tell us your grade, student number, and learning focus.'
-                      : 'Enter your academic credentials and department information.'}
-                  </Text>
-                </View>
-
-                <View style={styles.formStack}>
-                  <Field
-                    label="Full Name"
-                    placeholder={role === 'student' ? 'e.g. Alex Reyes' : 'e.g. Ms. Biel Santos'}
-                    value={fullName}
-                    onChangeText={setFullName}
-                    autoCapitalize="words"
-                  />
-
-                  {/* School / Institution Question with GlideSelect & Philippine School API */}
-                  <GlideSelect
-                    label={role === 'student' ? 'School / University' : 'School / Institution'}
-                    placeholder="Select Philippine school..."
-                    helperText="Official directory of recognized Philippine universities, colleges, and high schools"
-                    value={school}
-                    onChange={(val) => setSchool(val)}
-                    options={schoolOptions}
-                    isLoading={isLoadingSchools}
-                  />
-
-                  {role === 'student' ? (
-                    <>
-                      <Field
-                        label="Student ID Number"
-                        placeholder="e.g. 2026-10492"
-                        value={studentId}
-                        onChangeText={setStudentId}
-                      />
-
-                      <View style={{ flexDirection: 'row', gap: 12 }}>
-                        <View style={{ flex: 1 }}>
-                          <Field
-                            label="Grade / Year"
-                            placeholder="Grade 10"
-                            value={gradeLevel}
-                            onChangeText={setGradeLevel}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Field
-                            label="Section"
-                            placeholder="Newton"
-                            value={section}
-                            onChangeText={setSection}
-                          />
-                        </View>
-                      </View>
-
-                      <Field
-                        label="Preferred Learning Focus"
-                        placeholder="e.g. Science, Biology, Algebra"
-                        value={learningGoal}
-                        onChangeText={setLearningGoal}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <View style={{ flexDirection: 'row', gap: 12 }}>
-                        <View style={{ width: 100 }}>
-                          <Field
-                            label="Title"
-                            placeholder="Ms. / Prof."
-                            value={honorific}
-                            onChangeText={setHonorific}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Field
-                            label="Faculty ID"
-                            placeholder="FAC-2026-081"
-                            value={employeeId}
-                            onChangeText={setEmployeeId}
-                          />
-                        </View>
-                      </View>
-
-                      <Field
-                        label="Department / Faculty"
-                        placeholder="e.g. Science & Technology"
-                        value={department}
-                        onChangeText={setDepartment}
-                      />
-
-                      <Field
-                        label="Primary Subject"
-                        placeholder="e.g. Integrated Science & Physics"
-                        value={subject}
-                        onChangeText={setSubject}
-                      />
-
-                      <Field
-                        label="Consultation Office"
-                        placeholder="e.g. Faculty Room 304"
-                        value={officeRoom}
-                        onChangeText={setOfficeRoom}
-                      />
-                    </>
-                  )}
-                </View>
-
-                <View style={styles.footerSection}>
-                  <Button
-                    title="Continue"
-                    disabled={!fullName.trim() || !school.trim()}
-                    onPress={() => navigateTo('email_entry', 'forward')}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* ========================================================= */}
-            {/* SCREEN 3: ENTER EMAIL ADDRESS                            */}
-            {/* ========================================================= */}
-            {currentScreen === 'email_entry' && (
-              <View style={styles.screenBody}>
-                <StepNavBar
-                  step={stepNumber}
-                  total={4}
-                  onBack={() => navigateTo('onboarding_details', 'backward')}
-                />
-
-                <View style={styles.headerBlock}>
-                  <Text style={styles.screenTitle}>What's your email?</Text>
-                  <Text style={styles.heroSubtitle}>
-                    We will send a 6-digit one-time verification code (OTP) to confirm your account.
-                  </Text>
-                </View>
-
-                <View style={styles.formStack}>
-                  <Field
-                    label="Email Address"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                  />
-                </View>
-
-                <View style={styles.footerSection}>
-                  <Button
-                    title="Send Verification Code"
-                    disabled={!email.includes('@') || email.length < 5}
-                    onPress={() => {
-                      setOtp('');
-                      setResendTimer(45);
-                      setOtpError('');
-                      navigateTo('otp_verify', 'forward');
-                    }}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* ========================================================= */}
-            {/* SCREEN 4: VERIFY OTP (6-digit verification code)         */}
-            {/* ========================================================= */}
-            {currentScreen === 'otp_verify' && (
-              <View style={styles.screenBody}>
-                <StepNavBar
-                  step={stepNumber}
-                  total={4}
-                  onBack={() => navigateTo('email_entry', 'backward')}
-                />
-
-                <View style={styles.headerBlock}>
-                  <Text style={styles.screenTitle}>Enter Verification Code</Text>
-                  <Text style={styles.heroSubtitle}>
-                    Sent to <Text style={{ color: colors.ink, fontWeight: '700' }}>{email || 'your email'}</Text>
-                  </Text>
-                </View>
-
-                {/* CodeSlots Interactive Component with animations */}
-                <CodeSlots
-                  length={6}
-                  value={otp}
-                  onChange={(code) => {
-                    setOtp(code);
-                    if (code.length === 6) setOtpError('');
-                  }}
-                  onComplete={() => {
-                    setOtpError('');
-                  }}
-                  status={otpError ? 'error' : 'idle'}
-                  autoFocus
-                />
-
-                {otpError ? (
-                  <View style={s.error}>
-                    <Text style={s.errorText}>{otpError}</Text>
-                  </View>
-                ) : null}
-
-                {/* Resend Timer */}
-                <View style={styles.centerActionRow}>
-                  {resendTimer > 0 ? (
-                    <Text style={styles.captionText}>
-                      Resend code in <Text style={{ fontWeight: '700', color: colors.ink }}>{resendTimer}s</Text>
-                    </Text>
-                  ) : (
-                    <Pressable
-                      onPress={() => {
-                        setResendTimer(45);
-                        setOtp('');
-                        setOtpError('');
-                      }}
-                    >
-                      <Text style={styles.linkText}>Resend code now</Text>
-                    </Pressable>
-                  )}
-                </View>
-
-                <View style={styles.footerSection}>
-                  <Button
-                    title={isVerifyingOtp ? 'Verifying...' : 'Verify'}
-                    disabled={otp.length < 6 || isVerifyingOtp}
-                    busy={isVerifyingOtp}
-                    onPress={async () => {
-                      if (otp.length < 6) {
-                        setOtpError('Please enter all 6 digits of the code.');
-                        return;
-                      }
-                      setOtpError('');
-                      setIsVerifyingOtp(true);
-                      try {
-                        // Brief smooth verification pause (300ms)
-                        await new Promise((resolve) => setTimeout(resolve, 300));
-                        navigateTo('registration', 'forward');
-                      } catch {
-                        setOtpError('Verification failed. Please try again.');
-                      } finally {
-                        setIsVerifyingOtp(false);
-                      }
-                    }}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* ========================================================= */}
-            {/* SCREEN 5: REGISTRATION & CREDENTIALS                      */}
-            {/* ========================================================= */}
-            {currentScreen === 'registration' && (
-              <View style={styles.screenBody}>
-                <StepNavBar
-                  step={stepNumber}
-                  total={4}
-                  onBack={() => navigateTo('otp_verify', 'backward')}
-                />
-
-                <View style={styles.headerBlock}>
-                  <Text style={styles.screenTitle}>Create Credentials</Text>
-                  <Text style={styles.heroSubtitle}>
-                    Set up a secure password and enter your classroom join code.
-                  </Text>
-                </View>
-
-                <View style={styles.formStack}>
-                  <Field
-                    label="Password"
-                    placeholder="At least 8 characters"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                  />
-
-                  <Field
-                    label="Confirm Password"
-                    placeholder="Re-enter password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                  />
-
-                  <Field
-                    label="Classroom / School Code"
-                    placeholder="e.g. NEWTON2026"
-                    value={classCode}
-                    onChangeText={setClassCode}
+            {selectedRole === 'student' ? (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Student ID Number</Text>
+                  <TextInput
+                    accessibilityLabel="Student ID"
+                    value={studentId}
+                    onChangeText={setStudentId}
+                    placeholder="e.g. 2024-12345"
+                    placeholderTextColor={colors.muted}
                     autoCapitalize="characters"
-                  />
-
-                  {/* Password indicators */}
-                  <View style={styles.tipsList}>
-                    <Text
-                      style={[
-                        styles.tipText,
-                        password.length >= 8 && { color: colors.green, fontWeight: '600' },
-                      ]}
-                    >
-                      • Minimum 8 characters
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tipText,
-                        password && password === confirmPassword && { color: colors.green, fontWeight: '600' },
-                      ]}
-                    >
-                      • Passwords match
-                    </Text>
-                  </View>
-
-                  {/* Terms checkbox */}
-                  <Pressable
-                    onPress={() => setAgreedTerms(!agreedTerms)}
-                    style={styles.termsLine}
-                  >
-                    <View style={[styles.checkboxSquare, agreedTerms && styles.checkboxSquareActive]}>
-                      {agreedTerms && <Icon name="checkmark" size={12} color="#fff" />}
-                    </View>
-                    <Text style={styles.termsText}>
-                      I agree to the School Academic Integrity Policy and ClassAssist Terms of Service.
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <View style={styles.footerSection}>
-                  <Button
-                    title="Complete Registration"
-                    disabled={!password || password !== confirmPassword || !agreedTerms}
-                    onPress={() => navigateTo('welcome', 'forward')}
+                    style={styles.input}
                   />
                 </View>
-              </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Program / Course</Text>
+                  <TextInput
+                    accessibilityLabel="Course"
+                    value={course}
+                    onChangeText={setCourse}
+                    placeholder="e.g. BS Computer Science"
+                    placeholderTextColor={colors.muted}
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Year Level / Grade</Text>
+                  <TextInput
+                    accessibilityLabel="Year level"
+                    value={yearLevel}
+                    onChangeText={setYearLevel}
+                    placeholder="e.g. 2nd Year, Grade 10"
+                    placeholderTextColor={colors.muted}
+                    style={styles.input}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Faculty / Employee ID</Text>
+                  <TextInput
+                    accessibilityLabel="Faculty ID"
+                    value={facultyId}
+                    onChangeText={setFacultyId}
+                    placeholder="e.g. FAC-2026-001"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Department</Text>
+                  <TextInput
+                    accessibilityLabel="Department"
+                    value={department}
+                    onChangeText={setDepartment}
+                    placeholder="e.g. Department of Computer Science"
+                    placeholderTextColor={colors.muted}
+                    style={styles.input}
+                  />
+                </View>
+              </>
             )}
 
-            {/* ========================================================= */}
-            {/* WELCOME / CELEBRATORY SCREEN                             */}
-            {/* ========================================================= */}
-            {currentScreen === 'welcome' && (
-              <View style={styles.screenBody}>
-                <View style={[styles.headerBlock, { alignItems: 'center', marginTop: 24 }]}>
-                  <Animated.View style={{ transform: [{ scale: welcomeIconScale }] }}>
-                    <Icon name="sparkles" size={54} color={colors.green} />
-                  </Animated.View>
-                  <Text style={[styles.heroTitle, { textAlign: 'center' }]}>Account Created!</Text>
-                  <Text style={[styles.heroSubtitle, { textAlign: 'center' }]}>
-                    Welcome to ClassAssist, <Text style={{ color: colors.ink, fontWeight: '700' }}>{fullName || 'Scholar'}</Text>!
-                  </Text>
-                </View>
-
-                {/* Profile Details List */}
-                <View style={styles.detailsList}>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Role</Text>
-                    <Pill tone={role === 'teacher' ? 'green' : 'blue'}>
-                      {role === 'teacher' ? 'Teacher' : 'Student'}
-                    </Pill>
-                  </View>
-
-                  <View style={styles.dividerLine} />
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>School</Text>
-                    <Text
-                      style={[styles.detailValue, { flexShrink: 1, textAlign: 'right', maxWidth: '65%' }]}
-                      numberOfLines={1}
-                    >
-                      {school || 'University of the Philippines Diliman'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.dividerLine} />
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Email</Text>
-                    <Text style={styles.detailValue}>{email || 'user@classassist.demo'}</Text>
-                  </View>
-
-                  <View style={styles.dividerLine} />
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>
-                      {role === 'teacher' ? 'Department' : 'Grade & Section'}
-                    </Text>
-                    <Text style={styles.detailValue}>
-                      {role === 'teacher' ? department : `${gradeLevel} · ${section}`}
-                    </Text>
-                  </View>
-
-                  <View style={styles.dividerLine} />
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Class Code</Text>
-                    <Text style={[styles.detailValue, { fontWeight: '700', color: colors.blue }]}>
-                      {classCode || 'NEWTON2026'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={[styles.footerSection, { gap: 12 }]}>
-                  <Button
-                    title="Enter Classroom Workspace"
-                    onPress={() => {
-                      setLoginEmail(email || (role === 'teacher' ? 'teacher@classassist.demo' : 'student@classassist.demo'));
-                      setLoginPassword(password || 'ClassAssist-demo-2026!');
-                      navigateTo('login', 'forward');
-                    }}
-                  />
-                  <Button
-                    title="Back to Landing Page"
-                    secondary
-                    onPress={() => navigateTo('role_select', 'backward')}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* ========================================================= */}
-            {/* EXISTING USER LOGIN SCREEN                                */}
-            {/* ========================================================= */}
-            {currentScreen === 'login' && (
-              <View style={styles.screenBody}>
-                <View style={styles.loginTopNav}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Back"
-                    onPress={() => navigateTo('role_select', 'backward')}
-                    style={styles.backButtonDirect}
-                  >
-                    <Icon name="arrow.left" size={20} color={colors.ink} />
-                  </Pressable>
-                  <Icon name="sparkles" size={24} color={colors.ink} />
-                  <View style={{ width: 28 }} />
-                </View>
-
-                <View style={styles.headerBlock}>
-                  <Text style={styles.screenTitle}>Welcome back</Text>
-                  <Text style={styles.heroSubtitle}>
-                    Sign in with your institutional or demo credentials.
-                  </Text>
-                </View>
-
-                {loginError ? (
-                  <View style={s.error}>
-                    <Text style={s.errorText}>{loginError}</Text>
-                  </View>
-                ) : null}
-
-                {!config ? (
-                  <Button title="Reconnect to server" onPress={retry} />
-                ) : (
-                  <View style={styles.formStack}>
-                    <Field
-                      label="Email address"
-                      value={loginEmail}
-                      onChangeText={setLoginEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                    />
-
-                    <Field
-                      label="Password"
-                      value={loginPassword}
-                      onChangeText={setLoginPassword}
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoComplete="current-password"
-                    />
-
-                    <View style={{ marginTop: 8 }}>
-                      <Button
-                        title="Sign In"
-                        busy={loginBusy}
-                        disabled={!loginEmail || !loginPassword}
-                        onPress={async () => {
-                          setLoginBusy(true);
-                          setLoginError('');
-                          try {
-                            const { error } = await authClient().auth.signInWithPassword({
-                              email: loginEmail.trim(),
-                              password: loginPassword,
-                            });
-                            if (error) throw error;
-                            const p = await request<Profile>('/me');
-                            onSignedIn(p);
-                          } catch (e) {
-                            setLoginError((e as Error).message);
-                          } finally {
-                            setLoginBusy(false);
-                          }
-                        }}
-                      />
-                    </View>
-
-                    {/* 1-Tap Demo Shortcuts */}
-                    <View style={{ gap: 8, marginTop: 16 }}>
-                      <Text style={[styles.captionText, { textAlign: 'center' }]}>
-                        Demo Accounts (1-Tap Test)
-                      </Text>
-                      <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <View style={{ flex: 1 }}>
-                          <Button
-                            title="Ms. Santos (Teacher)"
-                            secondary
-                            onPress={() => {
-                              setLoginEmail('teacher@classassist.demo');
-                              setLoginPassword('ClassAssist-demo-2026!');
-                            }}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Button
-                            title="Alex (Student)"
-                            secondary
-                            onPress={() => {
-                              setLoginEmail('student@classassist.demo');
-                              setLoginPassword('ClassAssist-demo-2026!');
-                            }}
-                          />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.footerSection}>
-                  <View style={styles.switchRow}>
-                    <Text style={styles.captionText}>New to ClassAssist?</Text>
-                    <Pressable onPress={() => navigateTo('role_select', 'backward')}>
-                      <Text style={styles.linkText}>Create an account</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-          </Animated.View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Enter Aider"
+              disabled={onboardingBusy}
+              onPress={handleFinishOnboarding}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && { opacity: 0.85 },
+                onboardingBusy && { opacity: 0.6 },
+              ]}
+            >
+              {onboardingBusy ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Enter Aider</Text>
+              )}
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// Apple HIG fluid progress bar navbar
-function StepNavBar({
-  step,
-  total,
-  onBack,
-}: {
-  step: number;
-  total: number;
-  onBack: () => void;
-}) {
-  const widthAnim = useRef(new Animated.Value((step / total) * 100)).current;
-
-  useEffect(() => {
-    Animated.spring(widthAnim, {
-      toValue: (step / total) * 100,
-      friction: 8,
-      tension: 60,
-      useNativeDriver: false,
-    }).start();
-  }, [step, total, widthAnim]);
-
-  return (
-    <View style={styles.stepNavBarRow}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        onPress={onBack}
-        style={({ pressed }) => [styles.backButtonDirect, pressed && { opacity: 0.5 }]}
-      >
-        <Icon name="arrow.left" size={20} color={colors.ink} />
-      </Pressable>
-
-      <View style={styles.progressTrack}>
-        <Animated.View
-          style={[
-            styles.progressFill,
-            {
-              width: widthAnim.interpolate({
-                inputRange: [0, 100],
-                outputRange: ['0%', '100%'],
-              }),
-            },
-          ]}
-        />
-      </View>
-
-      <Text style={styles.stepLabel}>
-        {step}/{total}
-      </Text>
-    </View>
-  );
-}
-
+// =========================================================================
+// STYLES (Matching Professor Classroom Visual Philosophy)
+// =========================================================================
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8F8FA',
   },
   scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingHorizontal: 22,
+    paddingTop: 16,
     paddingBottom: 40,
-  },
-  animatedContainer: {
-    flex: 1,
-  },
-  screenBody: {
-    flex: 1,
-    gap: 20,
-  },
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    minHeight: 44,
+    marginBottom: 8,
   },
-  brandText: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: colors.ink,
-    letterSpacing: -0.4,
-  },
-  navLoginButton: {
+  brand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    gap: 9,
   },
-  navLoginText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.blue,
+  brandName: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.45,
+  },
+  brandNameSmall: {
+    color: colors.ink,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepIndicator: {
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  stepText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: ACCENT,
   },
   headerBlock: {
-    gap: 8,
-    marginTop: 6,
+    marginTop: 10,
+    marginBottom: 24,
+    gap: 5,
   },
-  heroTitle: {
+  title: {
     fontSize: 32,
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: -0.8,
-  },
-  screenTitle: {
-    fontSize: 26,
+    lineHeight: 38,
     fontWeight: '700',
+    letterSpacing: -1.0,
     color: colors.ink,
-    letterSpacing: -0.6,
   },
-  heroSubtitle: {
-    fontSize: 16,
-    lineHeight: 23,
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
     color: colors.muted,
   },
-  rolesStack: {
-    gap: 14,
-    marginTop: 6,
+  errorBanner: {
+    backgroundColor: '#FCECEB',
+    borderWidth: 1,
+    borderColor: '#F7C2C0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 18,
   },
-  roleItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  errorText: {
+    color: '#9F2925',
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '500',
+  },
+  form: {
     gap: 16,
-    padding: 20,
-    borderRadius: 22,
-    backgroundColor: '#F8F8FA',
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  input: {
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  passwordWrap: {
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.line,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 6,
+  },
+  passwordInput: {
+    flex: 1,
+    height: 52,
+    fontSize: 15,
+    color: colors.ink,
+    paddingVertical: 0,
+  },
+  eyeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButton: {
+    minHeight: 56,
+    borderRadius: 16,
+    backgroundColor: ACCENT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  switchText: {
+    fontSize: 14,
+    color: colors.muted,
+  },
+  switchLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: ACCENT,
+  },
+  demoSection: {
+    marginTop: 36,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    gap: 12,
+  },
+  demoTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  demoRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  demoChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  demoChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  cardsStack: {
+    gap: 14,
+  },
+  roleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#ECECF0',
+    borderColor: colors.line,
+    padding: 20,
+    gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.035,
+    shadowRadius: 10,
+    elevation: 1,
   },
-  roleItemActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: colors.blue,
+  roleCardActive: {
+    borderColor: ACCENT,
+    backgroundColor: '#FDF8F8',
   },
-  roleItemActiveGreen: {
-    backgroundColor: '#FFFFFF',
-    borderColor: colors.green,
-  },
-  roleItemHeader: {
+  roleCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  roleItemTitle: {
-    fontSize: 18,
+  roleIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleIconBoxActive: {
+    backgroundColor: '#F8E9E9',
+  },
+  selectedCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: ACCENT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: colors.ink,
     letterSpacing: -0.3,
   },
-  roleItemDesc: {
+  roleDesc: {
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
-    marginTop: 2,
-  },
-  radioCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioCircleActive: {
-    borderColor: colors.blue,
-  },
-  radioCircleActiveGreen: {
-    borderColor: colors.green,
-  },
-  radioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.blue,
-  },
-  formStack: {
-    gap: 16,
-    marginVertical: 4,
-  },
-  footerSection: {
-    marginTop: 16,
-    gap: 12,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-  },
-  captionText: {
-    fontSize: 14,
-    color: colors.muted,
-  },
-  linkText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.blue,
-  },
-  stepNavBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  backButtonDirect: {
-    padding: 6,
-    marginLeft: -6,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#EBEBF0',
-    marginHorizontal: 16,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: colors.blue,
-  },
-  stepLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  centerActionRow: {
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  tipsList: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  tipText: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  termsLine: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginTop: 4,
-  },
-  checkboxSquare: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#C7C7CC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  checkboxSquareActive: {
-    backgroundColor: colors.blue,
-    borderColor: colors.blue,
-  },
-  termsText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.muted,
-    flex: 1,
-  },
-  detailsList: {
-    backgroundColor: '#F8F8FA',
-    borderRadius: 18,
-    padding: 18,
-    gap: 14,
-    marginVertical: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 15,
-    color: colors.muted,
-  },
-  detailValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.ink,
-  },
-  dividerLine: {
-    height: 1,
-    backgroundColor: '#ECECF0',
-  },
-  loginTopNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  devSection: {
-    marginTop: 20,
-    gap: 12,
-  },
-  devDividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  devDividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5EA',
-  },
-  devPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#EEF2FF',
-    borderRadius: 9999,
-  },
-  devPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#4F46E5',
-    letterSpacing: 0.5,
-  },
-  devCardsStack: {
-    gap: 10,
-  },
-  devAccountCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E5E5EA',
-    padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  devAccountContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  devIconBadgeTeacher: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#EDF5F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  devIconBadgeStudent: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#EBF3FE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  devAccountName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.ink,
-  },
-  devAccountRole: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  devTagGreen: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    backgroundColor: '#EDF5F0',
-    borderRadius: 4,
-  },
-  devTagGreenText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.green,
-  },
-  devTagBlue: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    backgroundColor: '#EBF3FE',
-    borderRadius: 4,
-  },
-  devTagBlueText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.blue,
-  },
-  devArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

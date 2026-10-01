@@ -17,20 +17,37 @@ export async function authenticate(req, res, next) {
   try {
     const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
     if (!token) fail('UNAUTHENTICATED', 'Sign in to continue.', 401);
-    const { data, error } = await supabaseAuth().auth.getUser(token);
-    if (error || !data.user || data.user.is_anonymous)
-      fail('UNAUTHENTICATED', 'Your session has expired. Please sign in again.', 401);
-    const profile = await one(pool, 'select * from classassist.profiles where id=$1', [
-      data.user.id,
-    ]);
-    if (!profile)
-      fail(
-        'PROFILE_REQUIRED',
-        'Your account needs a school profile. Contact your class administrator.',
-        403,
-      );
-    req.user = profile;
-    next();
+
+    // 1. Direct application account/profile lookup
+    const profile = await one(
+      pool,
+      `select p.* from classassist.profiles p
+       join classassist.accounts a on a.id = p.id
+       where a.id::text = $1`,
+      [token],
+    );
+    if (profile) {
+      req.user = profile;
+      return next();
+    }
+
+    // 2. Supabase Auth fallback
+    try {
+      const { data, error } = await supabaseAuth().auth.getUser(token);
+      if (!error && data?.user && !data.user.is_anonymous) {
+        const supaProfile = await one(pool, 'select * from classassist.profiles where id=$1', [
+          data.user.id,
+        ]);
+        if (supaProfile) {
+          req.user = supaProfile;
+          return next();
+        }
+      }
+    } catch {
+      // Ignored
+    }
+
+    fail('UNAUTHENTICATED', 'Your session has expired. Please sign in again.', 401);
   } catch (error) {
     next(error);
   }

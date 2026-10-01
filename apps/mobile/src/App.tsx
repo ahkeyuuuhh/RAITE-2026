@@ -15,7 +15,7 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
-import { connect, authClient, request } from './api';
+import { connect, authClient, request, setAuthToken, getAuthToken } from './api';
 import { AppContext, useRemote } from './context';
 import {
   Body,
@@ -125,8 +125,15 @@ function Root() {
     try {
       const c = await connect();
       setConfig(c.config);
-      const { data } = await c.auth.auth.getSession();
-      if (data.session) setProfile(await request<Profile>('/me'));
+      const token = await getAuthToken();
+      if (token) {
+        try {
+          const p = await request<Profile>('/me');
+          setProfile(p);
+        } catch {
+          await setAuthToken(null);
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -140,8 +147,11 @@ function Root() {
     try {
       const client = authClient();
       if (!client?.auth) return;
-      const { data } = client.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_OUT' || !session) setProfile(undefined);
+      const { data } = client.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          const token = await getAuthToken();
+          if (!token) setProfile(undefined);
+        }
       });
       return () => data?.subscription?.unsubscribe();
     } catch {
@@ -151,9 +161,9 @@ function Root() {
   if (loading)
     return (
       <SafeAreaView style={styles.center}>
-        <Icon name="sparkles" size={38} />
-        <Heading>ClassAssist</Heading>
-        <ActivityIndicator />
+        <Icon name="book.closed" size={36} color="#811212" />
+        <Heading style={{ marginTop: 8 }}>Aider</Heading>
+        <ActivityIndicator color="#811212" style={{ marginTop: 12 }} />
       </SafeAreaView>
     );
   if (!profile)
@@ -164,6 +174,7 @@ function Root() {
       profile={profile}
       onLogout={async () => {
         try {
+          await setAuthToken(null);
           const client = authClient();
           if (client?.auth) {
             await client.auth.signOut({ scope: 'local' });
@@ -185,9 +196,8 @@ const studentTabs: { key: string; label: string; icon: IconName }[] = [
 ];
 
 const teacherTabs: { key: string; label: string; icon: IconName }[] = [
-  { key: 'home', label: 'Home', icon: 'house.fill' },
-  { key: 'classes', label: 'Classes', icon: 'person.2.fill' },
-  { key: 'assistant', label: 'Studio', icon: 'sparkles' },
+  { key: 'home', label: 'Classroom', icon: 'book.closed' },
+  { key: 'assistant', label: 'Agent', icon: 'sparkles' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar' },
   { key: 'profile', label: 'Profile', icon: 'person.fill' },
 ];
@@ -261,7 +271,7 @@ function Workspace({
   );
   const content = () => {
     if (tab === 'home') {
-      return profile.role === 'teacher' ? <TeacherHomeScreen /> : <StudentHomeScreen />;
+      return profile.role === 'teacher' ? <TeacherHomeScreen onCreateClass={() => setTab('classes')} /> : <StudentHomeScreen />;
     }
     if (tab === 'review') {
       return <StudentReviewScreen />;
@@ -372,12 +382,14 @@ function Workspace({
   return (
     <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
       <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-        {tab !== 'agent' && (
+        {tab !== 'agent' && !(tab === 'home' && profile.role === 'teacher') && (
           <View style={styles.top}>
             <View>
               <Label>{profile.role === 'teacher' ? 'Teacher workspace' : 'Student workspace'}</Label>
               <Text style={styles.title}>
-                {tab === 'home'
+                {tab === 'classes'
+                  ? 'Classes'
+                  : tab === 'home'
                   ? `Hello, ${profile.name
                       .split(' ')
                       .slice(0, profile.role === 'teacher' ? 2 : 1)
@@ -417,8 +429,9 @@ function Workspace({
             <View style={styles.dockContainer}>
               <BlurView intensity={Platform.OS === 'ios' ? 80 : 50} tint="light" style={styles.dock}>
                 {tabs.map((t) => {
-                  const isSelected = tab === t.key;
+                  const isSelected = tab === t.key || (tab === 'classes' && profile.role === 'teacher' && t.key === 'home');
                   const isAgent = t.key === 'agent' || t.key === 'assistant';
+                  const activeColor = profile.role === 'teacher' ? '#811212' : '#111827';
                   return (
                     <Pressable
                       key={t.key}
@@ -452,14 +465,17 @@ function Workspace({
                                 elevation: 5,
                               }
                             : isSelected
-                            ? styles.activeTabChip
+                            ? [
+                                styles.activeTabChip,
+                                profile.role === 'teacher' && { backgroundColor: 'rgba(129, 18, 18, 0.08)' },
+                              ]
                             : null,
                         ]}
                       >
                         <Icon
                           name={t.icon}
-                          size={isAgent ? 21 : 21}
-                          color={isAgent ? '#FFFFFF' : isSelected ? '#111827' : '#6B7280'}
+                          size={isAgent ? 21 : 22}
+                          color={isAgent ? '#FFFFFF' : isSelected ? activeColor : '#6B7280'}
                         />
                         <Text
                           style={[
@@ -467,7 +483,10 @@ function Workspace({
                             isAgent
                               ? { color: '#FFFFFF', fontWeight: '700', fontSize: 11 }
                               : isSelected
-                              ? styles.activeTabLabel
+                              ? [
+                                  styles.activeTabLabel,
+                                  profile.role === 'teacher' && { color: activeColor, fontWeight: '700' },
+                                ]
                               : styles.inactiveTabLabel,
                           ]}
                           numberOfLines={1}

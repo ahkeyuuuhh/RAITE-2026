@@ -66,8 +66,14 @@ export type IconName =
   | 'drop.fill'
   | 'moon.fill'
   | 'dumbbell.fill'
-  | 'book.closed.fill';
+  | 'book.closed.fill'
+  | 'book.closed'
+  | 'magnifyingglass'
+  | 'eye'
+  | 'eye.slash';
 const paths: Record<IconName, string> = {
+  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  'eye.slash': 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22',
   camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   'arrow.up.doc': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M12 18v-6m-3 3 3-3 3 3',
   'ellipsis.vertical': '',
@@ -76,6 +82,8 @@ const paths: Record<IconName, string> = {
   waveform: 'M7 10v4M12 5v14M17 9v6',
   'chevron.down': 'm6 9 6 6 6-6',
   pencil: 'M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z',
+  'book.closed': 'M3 5.5A2.5 2.5 0 0 1 5.5 3H20v17H5.5A2.5 2.5 0 0 0 3 22.5v-17Zm0 0V22.5m0-2.5A2.5 2.5 0 0 1 5.5 17H20',
+  magnifyingglass: 'M10.8 3a7.8 7.8 0 1 0 0 15.6 7.8 7.8 0 0 0 0-15.6Zm5.6 13.4L22 22',
   'doc.on.doc': 'M8 8h10v12H8zM6 16H4V4h12v2',
   'arrow.counterclockwise': 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5',
   'questionmark.circle': 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm0-6h.01M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3',
@@ -131,6 +139,8 @@ const sfSymbolMap: Partial<Record<IconName, any>> = {
   'moon.fill': 'moon.fill',
   'dumbbell.fill': 'dumbbell.fill',
   'book.closed.fill': 'book.closed.fill',
+  eye: 'eye',
+  'eye.slash': 'eye.slash',
 };
 
 export function Icon({
