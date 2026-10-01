@@ -150,8 +150,8 @@ export async function geminiChat(message, history = []) {
 
     return {
       reply:
-        sampleAnswer +
-        '\n\n---\n*💡 **Offline Preview Mode**: Connect your free Google Gemini API key by setting `GEMINI_API_KEY=AIzaSy...` in your `.env` file to unlock live, real-time AI responses!*',
+        sampleAnswer.replace(/\*\*/g, '') +
+        '\n\n---\n*💡 Offline Preview Mode: Connect your free Google Gemini API key by setting GEMINI_API_KEY in your .env file to unlock live, real-time AI responses!*',
       model: 'gemini-preview',
       live: false,
     };
@@ -178,7 +178,8 @@ export async function geminiChat(message, history = []) {
       {
         text: `You are ClassAssist AI Agent, an encouraging, articulate, and academically rigorous study companion for Philippine students.
 - Explain challenging concepts step-by-step with real-world examples.
-- Use clear bullet points, bold key terms, and markdown formatting.
+- Use clear bullet points and clean structure.
+- CRITICAL FORMATTING RULE: Do NOT use markdown bold double asterisks (**) or single asterisks for emphasis anywhere in your reply. Never output **. Use plain text or quotation marks instead.
 - If a question would benefit from hands-on guidance from their teacher, suggest scheduling a consultation via ClassAssist.`,
       },
     ],
@@ -214,8 +215,9 @@ export async function geminiChat(message, history = []) {
       }
 
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
+        text = text.replace(/\*\*/g, '');
         return {
           reply: text,
           model: model,

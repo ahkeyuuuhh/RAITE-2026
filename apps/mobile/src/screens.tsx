@@ -571,7 +571,7 @@ async function callGeminiDirect(
             systemInstruction: {
               parts: [
                 {
-                  text: 'You are ClassAssist AI Agent, an encouraging, articulate, and academically rigorous study companion for Philippine students. Explain concepts step-by-step with clear examples.',
+                  text: 'You are ClassAssist AI Agent, an encouraging, articulate, and academically rigorous study companion for Philippine students. Explain concepts step-by-step with clear examples. CRITICAL FORMATTING: Never use markdown bold double asterisks (**) anywhere in your response. Never output **. Use plain text or quotation marks instead.',
                 },
               ],
             },
@@ -586,8 +586,11 @@ async function callGeminiDirect(
       clearTimeout(timer);
       if (res.ok) {
         const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return { reply: text, model };
+        let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          text = text.replace(/\*\*/g, '');
+          return { reply: text, model };
+        }
       }
     } catch (e) {
       console.warn(`Direct Gemini call failed for ${model}:`, e);
@@ -715,7 +718,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       // 1. Prioritize direct Google Gemini call (avoids tunnel/LAN abort errors)
       const direct = await callGeminiDirect(text, history);
       if (direct?.reply) {
-        replyText = direct.reply;
+        replyText = direct.reply.replace(/\*\*/g, '');
         replyModel = direct.model;
         isLive = true;
       } else {
@@ -726,7 +729,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
           false,
         );
         if (res?.reply) {
-          replyText = res.reply;
+          replyText = res.reply.replace(/\*\*/g, '');
           replyModel = res.model || 'gemini-3.1-flash-lite';
           isLive = res.live ?? true;
         }
@@ -735,7 +738,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       const aiMsg: ChatMessage = {
         id: randomUUID(),
         role: 'assistant',
-        content: replyText || 'No explanation returned.',
+        content: (replyText || 'No explanation returned.').replace(/\*\*/g, ''),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         model: replyModel,
         live: isLive,
@@ -762,8 +765,9 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   };
 
   const handleCopy = (id: string, text: string) => {
+    const clean = (text || '').replace(/\*\*/g, '');
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).catch(() => {});
+      navigator.clipboard.writeText(clean).catch(() => {});
     }
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2200);
@@ -951,7 +955,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E1B4B' }}>Gemini</Text>
                     <View style={{ backgroundColor: m.live ? '#ECFDF5' : '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: m.live ? '#059669' : '#D97706' }}>
-                        {m.live ? 'Gemini 1.5' : 'Preview'}
+                        {m.live ? 'Gemini Flash' : 'Preview'}
                       </Text>
                     </View>
                   </View>
@@ -959,7 +963,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 </View>
 
                 <Text style={{ fontSize: 14, lineHeight: 22, color: '#1F2937' }}>
-                  {m.content}
+                  {(m.content || '').replace(/\*\*/g, '')}
                 </Text>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
