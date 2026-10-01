@@ -63,9 +63,30 @@ export type Teacher = { id: string; name: string };
 export type CalendarEvent = {
   id: string;
   title: string;
+  display_title?: string;
   starts_at: string;
   ends_at: string;
   kind: string;
+  canceled?: boolean;
+  class_id?: string | null;
+  class_name?: string | null;
+  class_subject?: string | null;
+  participant_name?: string | null;
+};
+export type ConsultationRequest = {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  class_id: string | null;
+  requested_start: string;
+  requested_end: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'denied' | 'cancelled';
+  teacher_note: string | null;
+  student_name: string;
+  teacher_name: string;
+  class_name: string | null;
+  class_subject: string | null;
 };
 export type Notice = {
   id: string;

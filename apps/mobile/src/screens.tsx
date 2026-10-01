@@ -29,6 +29,7 @@ import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect, Circle, SvgXml } from 'react-native-svg';
 import { Prism } from './Prism';
 import SquishSwitch from './SquishSwitch';
+import { ProfessorCalendar } from './professor-calendar';
 import {
   Body,
   Button,
@@ -3892,6 +3893,11 @@ export function Consultations() {
   );
 }
 export function Calendar() {
+  const { profile } = useApp();
+  return profile.role === 'teacher' ? <ProfessorCalendar /> : <StudentCalendar />;
+}
+
+function StudentCalendar() {
   const { data, error } = useRemote<CalendarEvent[]>('/me/calendar');
   return (
     <View style={s.stack}>

@@ -20,6 +20,12 @@ import {
 } from './domain.js';
 import { availableSlots, book, cancelBooking, saveAvailability } from './consultations.js';
 import {
+  approveConsultationRequest,
+  createConsultationRequest,
+  denyConsultationRequest,
+  listConsultationRequests,
+} from './consultation-requests.js';
+import {
   createDraft,
   editDraft,
   approve,
@@ -690,6 +696,42 @@ app.post(
   '/api/consultations/:id/cancel',
   route((req) => cancelBooking(req.user, id(req))),
 );
+app.get(
+  '/api/consultation-requests',
+  route((req) =>
+    listConsultationRequests(
+      req.user,
+      req.query.status
+        ? z.enum(['pending', 'approved', 'denied', 'cancelled']).parse(req.query.status)
+        : undefined,
+    ),
+  ),
+);
+app.post(
+  '/api/consultation-requests',
+  route((req) =>
+    createConsultationRequest(
+      req.user,
+      z
+        .object({
+          teacherId: uuid,
+          classId: uuid.nullable().optional(),
+          requestedStart: z.iso.datetime({ offset: true }),
+          requestedEnd: z.iso.datetime({ offset: true }),
+          reason: z.string().trim().max(1000).optional().default(''),
+        })
+        .parse(req.body),
+    ),
+  ),
+);
+app.post(
+  '/api/consultation-requests/:id/approve',
+  route((req) => approveConsultationRequest(req.user, id(req))),
+);
+app.post(
+  '/api/consultation-requests/:id/deny',
+  route((req) => denyConsultationRequest(req.user, id(req))),
+);
 app.post(
   '/api/assistant/messages',
   rateLimit({ windowMs: 60000, limit: 8 }),
@@ -858,8 +900,25 @@ app.get(
     async (req) =>
       (
         await pool.query(
-          `select e.* from classassist.calendar_events e where not canceled and
-  (user_id=$1 or exists(select 1 from classassist.classes c where c.id=e.class_id and (c.teacher_id=$1 or exists(select 1 from classassist.memberships m where m.class_id=c.id and m.student_id=$1 and m.active)))) order by starts_at`,
+          `select e.*,
+  case
+    when e.kind='consultation' and b.id is not null and b.teacher_id=$1 then 'Consultation with ' || student.name
+    when e.kind='consultation' and b.id is not null and b.student_id=$1 then 'Consultation with ' || teacher.name
+    else e.title
+  end as display_title,
+  case
+    when e.kind='consultation' and b.teacher_id=$1 then student.name
+    when e.kind='consultation' and b.student_id=$1 then teacher.name
+    else null
+  end as participant_name,
+  c.name as class_name,c.subject as class_subject
+  from classassist.calendar_events e
+  left join classassist.consultations b on b.id=e.reference_id and e.kind='consultation'
+  left join classassist.profiles student on student.id=b.student_id
+  left join classassist.profiles teacher on teacher.id=b.teacher_id
+  left join classassist.classes c on c.id=e.class_id
+  where not e.canceled and
+  (e.user_id=$1 or exists(select 1 from classassist.classes owned_class where owned_class.id=e.class_id and (owned_class.teacher_id=$1 or exists(select 1 from classassist.memberships m where m.class_id=owned_class.id and m.student_id=$1 and m.active)))) order by e.starts_at`,
           [req.user.id],
         )
       ).rows,
