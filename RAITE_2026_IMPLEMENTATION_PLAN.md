@@ -104,6 +104,46 @@ Build six views, reusing components:
 
 Use readable contrast, keyboard navigation, labels, visible focus, explicit time zones, and actionable errors. Do not render questions as images to obstruct copying; this harms accessibility. Keep teacher controls visible without requiring chat.
 
+### UI/UX Design System: iOS Minimal Clean White
+
+The visual design follows an **iOS / Apple Human Interface Guidelines (HIG)** aesthetic—clean, airy, distraction-free, and widget-centric.
+
+#### 1. Color Palette & Surfaces
+- **Canvas Backdrop:** `#F2F2F7` (iOS system grouped background) or `#F7F7FA`.
+- **Card / Widget Surfaces:** `#FFFFFF` (pure white, elevated squircle cards).
+- **Secondary Nested Surfaces & Inactive Pills:** `#F6F6F9` or `#EAEAEF`.
+- **Primary Text / Headings:** High-contrast `#000000` / `#1C1C1E`.
+- **Secondary / Unit Labels:** Muted neutral `#8E8E93` (e.g., `slots`, `mins`, `students`, `questions`).
+- **Card Borders:** `1px solid rgba(0, 0, 0, 0.04)` for crisp edge definition without heavy visual weight.
+- **Micro-Shadows:** Soft, ambient diffusion (`box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02)`).
+
+#### 2. Card & Widget Architecture
+- **Squircle Geometry:** `border-radius: 24px` to `28px` on main metric cards and proposal panels; `16px` on nested cards.
+- **Information Hierarchy:**
+  - Category header with monochrome icon and title aligned top-left.
+  - Large primary bold figure (`28px–32px`, `font-weight: 700`, `letter-spacing: -0.5px`).
+  - Unit description directly beneath figure in secondary gray (`13px–14px`, `font-weight: 500`).
+- **Glanceable Micro-visualizations:**
+  - Circular SVG progress rings (for completed slots, consultation quotas, or submission progress).
+  - Micro sparkline trends and mini vertical bar indicators embedded into metric cards.
+
+#### 3. Iconography Standard: Apple SF Symbols (Mandatory)
+- **Strict Prohibition:** Do **NOT** use `lucide-react`, Feather, or generic Material Icons.
+- **Requirement:** All UI elements and assistant cards must use **Apple SF Symbols** (via an SVG symbol library or `@developer-apple/sf-symbols` vector equivalents).
+- **Style:** Monochrome regular/medium weight matching SF Pro typography (e.g., `calendar`, `clock.fill`, `person.crop.circle`, `doc.text.fill`, `flame.fill`, `drop.fill`, `chart.line.uptrend.xyaxis`, `checkmark.circle.fill`, `ellipsis`).
+
+#### 4. Navigation & Floating Dock
+- Floating bottom pill navigation dock centered above the bottom edge:
+  - Frosted glass finish: `background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(25px) saturate(180%);`.
+  - Full capsule border radius (`border-radius: 9999px`) with subtle elevation shadow.
+  - Pill tabs with vertical SF Symbol icon + 10px label layout, and soft capsule background (`#E8E8ED`) on the active tab.
+  - Standalone circular quick-action/more button (`ellipsis`).
+
+#### 5. Assistant Panel & Card Styling
+- **Conversation Stream:** Clean message bubbles (`border-radius: 20px`) with clear separation between user intent and assistant responses.
+- **Proposal & Confirmation Cards:** Formatted as structured squircle widgets (`border-radius: 24px`, `#FFFFFF` surface) with SF Symbols indicating details (teacher, time, duration, room).
+- **Progress Progression:** Pill chips displaying workflow steps (e.g., `Checked availability → Awaiting confirmation → Booked`).
+
 ## 5. Consultation workflow
 
 ### Onboarding and availability
@@ -346,7 +386,7 @@ Recommended owners: **A — UI and product flow**, **B — API/data/jobs**, **C 
 
 | Elapsed time | A: UI | B: API/data/jobs | C: AI/verification | Exit gate |
 | --- | --- | --- | --- | --- |
-| 0:00–0:45 | App shell, role navigation | Database/auth starter, roles, seeds | Provider connection, schemas, sample lesson | All developers can run the app; one real AI response. |
+| 0:00–0:45 | App shell, role navigation, iOS squircle theme & SF Symbols | Database/auth starter, roles, seeds | Provider connection, schemas, sample lesson | All developers can run the app; one real AI response. |
 | 0:45–2:00 | Availability form, class/join screens | Availability, membership, booking transaction | Intent parsing, tool dispatcher, draft generator | Authorized student sees real slots; teacher gets structured questions. |
 | 2:00–3:15 | Consultation chat and confirmation | Booking/calendar/notification records | Ambiguity and conflict cases | End-to-end booking succeeds once; duplicate/conflict rejected. |
 | 3:15–4:45 | Assessment review, edit, approve | Versioned approval, job table and worker | Bundle generation, lesson-reference validation | Teacher approves exact draft; unapproved content stays private. |
