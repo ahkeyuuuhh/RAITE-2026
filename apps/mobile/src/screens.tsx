@@ -8,7 +8,10 @@ import {
   TextInput,
   ScrollView,
   Platform,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { randomUUID } from 'expo-crypto';
 import { request, dateText, localDate, localDateTime, toISO } from './api';
 import { GEMINI_API_KEY } from './gemini-key';
@@ -618,6 +621,31 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
     }
   };
 
+  const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+        setTimeout(() => {
+          scrollRef.current?.scrollToEnd({ animated: true });
+        }, 80);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   useEffect(() => {
     checkStatus();
   }, []);
@@ -763,7 +791,20 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 16 }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    >
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 16,
+          paddingBottom: isKeyboardVisible
+            ? (Platform.OS === 'ios' ? 8 : 10)
+            : Math.max(insets.bottom, 14),
+        }}
+      >
       {/* 1. TOP BAR */}
       <View
         style={{
@@ -865,6 +906,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
           ref={scrollRef}
           contentContainerStyle={{ gap: 14, paddingVertical: 10 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
           {messages.map((m) =>
@@ -1115,7 +1157,8 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
         </Pressable>
       </View>
     </View>
-  );
+  </KeyboardAvoidingView>
+);
 }
 
 export function Home() {

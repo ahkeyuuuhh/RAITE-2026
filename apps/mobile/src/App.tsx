@@ -323,7 +323,7 @@ function Workspace({
           </View>
         )}
         {tab === 'agent' ? (
-          <View style={{ flex: 1, paddingBottom: Math.max(insets.bottom, 12) }}>
+          <View style={{ flex: 1 }}>
             {notice}
             {content()}
           </View>
