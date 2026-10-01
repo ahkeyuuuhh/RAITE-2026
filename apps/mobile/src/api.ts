@@ -7,6 +7,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Config } from './types';
 
 function resolveApiUrl(): string {
+  if (Platform.OS === 'web') {
+    return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+  }
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).manifest?.debuggerHost ||
@@ -34,6 +37,13 @@ let auth: SupabaseClient;
 // Split session JSON into small encrypted entries for native keychain size limits.
 const secureStorage = {
   async getItem(key: string) {
+    if (Platform.OS === 'web') {
+      try {
+        return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    }
     const manifest = await SecureStore.getItemAsync(key);
     if (!manifest) return null;
     const { generation, count } = JSON.parse(manifest);
@@ -46,6 +56,12 @@ const secureStorage = {
     return value;
   },
   async setItem(key: string, value: string) {
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+      } catch {}
+      return;
+    }
     const old = await SecureStore.getItemAsync(key);
     const generation = randomUUID(),
       count = Math.ceil(value.length / 1500);
@@ -62,6 +78,12 @@ const secureStorage = {
     }
   },
   async removeItem(key: string) {
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+      } catch {}
+      return;
+    }
     const old = await SecureStore.getItemAsync(key);
     await SecureStore.deleteItemAsync(key);
     if (old) {

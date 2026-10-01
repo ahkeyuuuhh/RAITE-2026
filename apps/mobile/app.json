@@ -6,7 +6,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "classassist",
-    "platforms": ["ios", "android"],
+    "platforms": ["ios", "android", "web"],
+    "web": {
+      "bundler": "metro"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.raite.classassist"
