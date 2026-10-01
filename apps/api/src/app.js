@@ -89,7 +89,7 @@ app.post(
   '/api/ai/chat',
   route(async (req) => {
     const bodySchema = z.object({
-      message: z.string().min(1).max(4000),
+      message: z.string().max(4000).optional().default(''),
       history: z
         .array(
           z.object({
@@ -99,9 +99,15 @@ app.post(
         )
         .optional()
         .default([]),
+      image: z
+        .object({
+          data: z.string(),
+          mimeType: z.string(),
+        })
+        .optional(),
     });
     const parsed = bodySchema.parse(req.body);
-    return await geminiChat(parsed.message, parsed.history);
+    return await geminiChat(parsed.message, parsed.history, parsed.image);
   }),
 );
 app.use('/api', authenticate);

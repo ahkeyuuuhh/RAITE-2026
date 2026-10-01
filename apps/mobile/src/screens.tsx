@@ -12,14 +12,16 @@ import {
   KeyboardAvoidingView,
   Animated,
   Easing,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { randomUUID } from 'expo-crypto';
 import { request, dateText, localDate, localDateTime, toISO } from './api';
 import { GEMINI_API_KEY } from './gemini-key';
 import { useApp, useRemote } from './context';
-import { QuizGeneratorModal } from './quiz-generator-modal';
+import { QuizGeneratorScreen, QuizGeneratorModal } from './quiz-generator-modal';
 import { BlurView } from 'expo-blur';
+import { Prism } from './Prism';
 import {
   Body,
   Button,
@@ -40,7 +42,6 @@ import {
   colors,
   fontStack,
   s,
-  GeminiStar,
 } from './ui';
 import type {
   Assessment,
@@ -274,6 +275,10 @@ export function StudentHomeScreen() {
   const { data: assessments } = useRemote<Assessment[]>('/assessments');
   const { data: classes } = useRemote<Classroom[]>('/classes');
 
+  if (showQuizGenerator) {
+    return <QuizGeneratorScreen onBack={() => setShowQuizGenerator(false)} />;
+  }
+
   const upcoming = (bookings || []).filter(
     (b) => b.status === 'booked' && new Date(b.ends_at) > new Date(),
   );
@@ -361,7 +366,10 @@ export function StudentHomeScreen() {
           icon="sparkles"
           title="Quiz Gen"
           subtitle="AI generator"
-          onPress={() => setShowQuizGenerator(true)}
+          onPress={() => {
+            open('quiz-gen');
+            setShowQuizGenerator(true);
+          }}
         />
 
         {/* Card 2: Flashcards (Coming Soon) */}
@@ -378,11 +386,6 @@ export function StudentHomeScreen() {
           subtitle="Key notes"
         />
       </View>
-
-      <QuizGeneratorModal
-        visible={showQuizGenerator}
-        onClose={() => setShowQuizGenerator(false)}
-      />
 
       {/* Enrolled Classes */}
       <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
@@ -523,27 +526,48 @@ interface ChatMessage {
   time: string;
   model?: string;
   live?: boolean;
+  imageUri?: string;
+}
+
+interface ImagePayload {
+  data: string;
+  mimeType: string;
 }
 
 async function callGeminiDirect(
   message: string,
   history: { role: string; content: string }[] = [],
+  image?: ImagePayload | null,
 ): Promise<{ reply: string; model: string } | null> {
   const apiKey = GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) return null;
-  const models = ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
+  const models = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
+  
+  const userParts: any[] = [];
+  if (image && image.data) {
+    userParts.push({
+      inline_data: {
+        mime_type: image.mimeType || 'image/jpeg',
+        data: image.data,
+      },
+    });
+  }
+  userParts.push({
+    text: message || (image ? 'Here is my lesson material or problem sheet. Please analyze it and guide me through the concepts step-by-step.' : 'Hello!'),
+  });
+
   const contents = [
     ...history.slice(-6).map((h) => ({
       role: h.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: h.content }],
     })),
-    { role: 'user', parts: [{ text: message }] },
+    { role: 'user', parts: userParts },
   ];
 
   for (const model of models) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 25000);
+      const timer = setTimeout(() => controller.abort(), 28000);
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
@@ -557,7 +581,22 @@ async function callGeminiDirect(
             systemInstruction: {
               parts: [
                 {
-                  text: 'You are ClassAssist AI Agent, an encouraging, articulate, and academically rigorous study companion for Philippine students. Explain concepts step-by-step with clear examples. CRITICAL FORMATTING: Never use markdown bold double asterisks (**) anywhere in your response. Never output **. Use plain text or quotation marks instead.',
+                  text: `You are ClassAssist Socratic Tutor, an encouraging, articulate, and academically rigorous study mentor for Philippine students.
+
+CORE TUTORING PEDAGOGY:
+1. STRICT SOCRATIC METHOD: You MUST NEVER give direct answers, final numerical solutions, completed code, or full essays under any circumstances. Even if the student says "just give me the answer" or "what is the final answer?", politely decline and offer a progressive hint or ask a guiding question instead.
+2. GUIDANCE & PROGRESSIVE HINTS:
+   - Break complex problems or topics down into bite-sized, digestible thinking steps.
+   - Ask guiding, diagnostic questions that lead the student to discover the answer on their own.
+   - Point out subtle clues or foundational formulas they need to recall.
+   - Identify and gently clarify misconceptions. Celebrate each insight the student gets right!
+3. WHEN AN IMAGE / LESSON IS UPLOADED:
+   - Analyze the image in detail (diagrams, questions, lesson title, text, formulas).
+   - Acknowledge and state the core lesson topic and the learning objective clearly.
+   - Ask an opening diagnostic question to invite the student to take the first step together (e.g. "What information is given first?" or "What formula relates these two quantities?").
+4. STRICT FORMATTING RULE:
+   - NEVER use markdown double asterisks (**) anywhere in your response. Never output **. Use plain text, bullet points with • or -, or quotation marks instead.
+   - Keep answers clear, accessible, and structured.`,
                 },
               ],
             },
@@ -763,9 +802,29 @@ function SmoothUserBubble({ message }: { message: ChatMessage }) {
         elevation: 2,
       }}
     >
-      <Text style={{ fontSize: 15, lineHeight: 22, color: '#FFFFFF', fontWeight: '500' }}>
-        {message.content}
-      </Text>
+      {message.imageUri && (
+        <View
+          style={{
+            marginBottom: 8,
+            borderRadius: 14,
+            overflow: 'hidden',
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.25)',
+          }}
+        >
+          <Image
+            source={{ uri: message.imageUri }}
+            style={{ width: 220, height: 160, borderRadius: 13 }}
+            resizeMode="cover"
+          />
+        </View>
+      )}
+      {message.content ? (
+        <Text style={{ fontSize: 15, lineHeight: 22, color: '#FFFFFF', fontWeight: '500' }}>
+          {message.content}
+        </Text>
+      ) : null}
       <Text
         style={{
           fontSize: 10,
@@ -830,6 +889,82 @@ function SmoothAssistantText({
   );
 }
 
+function WaveFrequencyBars({ isListening }: { isListening: boolean }) {
+  const barAnims = [
+    useRef(new Animated.Value(6)).current,
+    useRef(new Animated.Value(14)).current,
+    useRef(new Animated.Value(20)).current,
+    useRef(new Animated.Value(12)).current,
+    useRef(new Animated.Value(18)).current,
+    useRef(new Animated.Value(8)).current,
+  ];
+
+  useEffect(() => {
+    if (!isListening) {
+      barAnims.forEach((anim) => {
+        Animated.timing(anim, {
+          toValue: 6,
+          duration: 180,
+          useNativeDriver: false,
+        }).start();
+      });
+      return;
+    }
+
+    const configs = [
+      { min: 5, max: 22, duration: 240, delay: 0 },
+      { min: 8, max: 28, duration: 290, delay: 60 },
+      { min: 10, max: 32, duration: 220, delay: 110 },
+      { min: 6, max: 25, duration: 310, delay: 170 },
+      { min: 8, max: 29, duration: 250, delay: 80 },
+      { min: 5, max: 20, duration: 330, delay: 140 },
+    ];
+
+    const loops = barAnims.map((anim, idx) => {
+      const cfg = configs[idx];
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(cfg.delay),
+          Animated.timing(anim, {
+            toValue: cfg.max,
+            duration: cfg.duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
+          Animated.timing(anim, {
+            toValue: cfg.min,
+            duration: cfg.duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
+        ]),
+      );
+    });
+
+    loops.forEach((l) => l.start());
+
+    return () => {
+      loops.forEach((l) => l.stop());
+    };
+  }, [isListening]);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', height: 32, gap: 3.5, paddingHorizontal: 2 }}>
+      {barAnims.map((anim, idx) => (
+        <Animated.View
+          key={idx}
+          style={{
+            width: 3.5,
+            height: anim,
+            borderRadius: 2,
+            backgroundColor: '#8E8E93',
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   const { open } = useApp();
   const { text: typingEffectText, cursorVisible } = useTypingEffect(PROMPT_WORDS);
@@ -843,7 +978,120 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   const [aiStatus, setAiStatus] = useState<{ live: boolean; model: string } | null>(null);
   const [statusChecking, setStatusChecking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{
+    previewUrl: string;
+    data: string;
+    mimeType: string;
+    name?: string;
+  } | null>(null);
+
+  const handlePickImage = () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const inputEl = document.createElement('input');
+      inputEl.type = 'file';
+      inputEl.accept = 'image/*';
+      inputEl.onchange = (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        if (file.size > 12 * 1024 * 1024) {
+          alert('Please choose an image under 12MB.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result as string;
+          const [header, base64] = res.split(',');
+          const mimeType = header.match(/:(.*?);/)?.[1] || file.type || 'image/jpeg';
+          setSelectedImage({
+            previewUrl: res,
+            data: base64,
+            mimeType,
+            name: file.name,
+          });
+        };
+        reader.readAsDataURL(file);
+      };
+      inputEl.click();
+    }
+  };
+
   const scrollRef = useRef<ScrollView>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Smooth entrance animations when switching to Agent Screen
+  const screenFadeAnim = useRef(new Animated.Value(0)).current;
+  const screenSlideAnim = useRef(new Animated.Value(18)).current;
+  const screenScaleAnim = useRef(new Animated.Value(0.97)).current;
+
+  // Animated moving rainbow border
+  const rainbowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(screenFadeAnim, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(screenSlideAnim, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(screenScaleAnim, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [screenFadeAnim, screenSlideAnim, screenScaleAnim]);
+
+  useEffect(() => {
+    if (isListening) {
+      const loop = Animated.loop(
+        Animated.timing(rainbowAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }),
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      rainbowAnim.setValue(0);
+    }
+  }, [isListening, rainbowAnim]);
+
+  const rainbowBorderColor = rainbowAnim.interpolate({
+    inputRange: [0, 0.16, 0.33, 0.5, 0.66, 0.83, 1],
+    outputRange: [
+      '#FF2D55',
+      '#FF9500',
+      '#FFCC00',
+      '#34C759',
+      '#007AFF',
+      '#5856D6',
+      '#FF2D55',
+    ],
+  });
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          if (typeof recognitionRef.current.stop === 'function') {
+            recognitionRef.current.stop();
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
 
   const checkStatus = async () => {
     setStatusChecking(true);
@@ -888,37 +1136,39 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
 
   const samplePrompts = [
     {
-      tag: '🧬 Biology',
-      title: 'Cellular Respiration',
-      prompt: 'Explain the 3 stages of Cellular Respiration in simple terms with ATP yields.',
-    },
-    {
       tag: '📐 Algebra',
       title: 'Factoring vs Quadratic Formula',
-      prompt: 'How do I know when to use the quadratic formula versus factoring? Give a decision rule.',
+      prompt: 'Help me understand when to use the quadratic formula versus factoring. Guide me with questions.',
     },
     {
       tag: '⚡ Physics',
       title: 'Newton’s 3 Laws',
-      prompt: 'Give everyday Philippine examples for each of Newton’s three laws of motion.',
+      prompt: 'I want to master Newton’s laws of motion. Quiz me with real-world scenarios to test my understanding.',
+    },
+    {
+      tag: '🧬 Biology',
+      title: 'Cellular Respiration Steps',
+      prompt: 'Can you guide me step-by-step through cellular respiration? Ask me questions so I discover the stages.',
     },
     {
       tag: '🌿 Botany',
       title: 'Photosynthesis Stages',
-      prompt: 'Break down the light-dependent reactions and Calvin cycle step-by-step.',
+      prompt: 'Break down light-dependent reactions and Calvin cycle. Guide me step-by-step with diagnostic questions.',
     },
     {
-      tag: '🤝 Consultation',
-      title: 'Prepare Consultation Questions',
-      prompt: 'Help me draft 3 smart, respectful discussion questions for my teacher consultation.',
+      tag: '📷 Lesson Photo',
+      title: 'Analyze Uploaded Lesson Sheet',
+      prompt: 'I have attached a photo of my lesson material. Please analyze it and guide me through the concepts step-by-step.',
     },
   ];
 
   const handleSend = async (textToSend?: string) => {
-    const text = (textToSend || input).trim();
-    if (!text || isThinking) return;
+    const text = (textToSend !== undefined ? textToSend : input).trim();
+    const currentImage = selectedImage;
+    if ((!text && !currentImage) || isThinking) return;
 
     setInput('');
+    setSelectedImage(null);
     setShowPromptsSheet(false);
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -926,8 +1176,9 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
     const userMsg: ChatMessage = {
       id: randomUUID(),
       role: 'user',
-      content: text,
+      content: text || (currentImage ? 'Uploaded lesson material for guided study.' : ''),
       time: timeStr,
+      imageUri: currentImage?.previewUrl,
     };
 
     const updated = [...messages, userMsg];
@@ -945,11 +1196,15 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       }));
 
       let replyText = '';
-      let replyModel = 'gemini-3.1-flash-lite';
+      let replyModel = 'gemini-3.5-flash-lite';
       let isLive = true;
 
-      // 1. Prioritize direct Google Gemini call (avoids tunnel/LAN abort errors)
-      const direct = await callGeminiDirect(text, history);
+      // 1. Prioritize direct Google Gemini call with Vision support & Socratic Tutoring instructions
+      const direct = await callGeminiDirect(
+        text,
+        history,
+        currentImage ? { data: currentImage.data, mimeType: currentImage.mimeType } : null,
+      );
       if (direct?.reply) {
         replyText = direct.reply.replace(/\*\*/g, '');
         replyModel = direct.model;
@@ -958,12 +1213,16 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
         // 2. Fallback to backend API server
         const res = await request<{ reply: string; model: string; live: boolean }>(
           '/ai/chat',
-          { message: text, history },
+          {
+            message: text || (currentImage ? 'Please analyze my lesson sheet and guide me step-by-step.' : ''),
+            history,
+            image: currentImage ? { data: currentImage.data, mimeType: currentImage.mimeType } : undefined,
+          },
           false,
         );
         if (res?.reply) {
           replyText = res.reply.replace(/\*\*/g, '');
-          replyModel = res.model || 'gemini-3.1-flash-lite';
+          replyModel = res.model || 'gemini-3.5-flash-lite';
           isLive = res.live ?? true;
         }
       }
@@ -984,7 +1243,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       const errMsg: ChatMessage = {
         id: randomUUID(),
         role: 'assistant',
-        content: `⚠️ Notice: ${err?.message || 'Unable to reach ClassAssist AI server'}.\n\nPlease ensure your device is connected to the internet.`,
+        content: `Notice: ${err?.message || 'Unable to reach ClassAssist AI tutor'}.\n\nPlease ensure your device is connected to the internet.`,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         model: 'system-notice',
         live: false,
@@ -1014,444 +1273,682 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
     setShowPromptsSheet(false);
   };
 
+  const startListening = () => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      try {
+        const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const rec = new SpeechRec();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = 'en-US';
+
+        rec.onstart = () => {
+          setIsListening(true);
+        };
+
+        rec.onresult = (event: any) => {
+          let currentTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          if (currentTranscript.trim()) {
+            setInput(currentTranscript);
+          }
+        };
+
+        rec.onerror = (e: any) => {
+          console.warn('SpeechRecognition error:', e);
+          setIsListening(false);
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = rec;
+        rec.start();
+        setIsListening(true);
+        return;
+      } catch (err) {
+        console.warn('Failed to start SpeechRecognition:', err);
+      }
+    }
+
+    // Graceful simulated voice transcription fallback when Web Speech API is blocked or unsupported
+    setIsListening(true);
+    const demoPhrases = [
+      'Can you explain this lesson step-by-step?',
+      'Summarize key concepts for my upcoming test',
+      'Give me 3 practice quiz questions with solutions',
+      'What are the key points I need to review?',
+    ];
+    const chosenPhrase = demoPhrases[Math.floor(Math.random() * demoPhrases.length)];
+    let currentIdx = 0;
+    const interval = setInterval(() => {
+      currentIdx += 2;
+      setInput(chosenPhrase.slice(0, currentIdx));
+      if (currentIdx >= chosenPhrase.length) {
+        clearInterval(interval);
+        setTimeout(() => setIsListening(false), 900);
+      }
+    }, 50);
+    recognitionRef.current = {
+      stop: () => {
+        clearInterval(interval);
+        setIsListening(false);
+      },
+    };
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        if (typeof recognitionRef.current.stop === 'function') {
+          recognitionRef.current.stop();
+        }
+      } catch {
+        // ignore
+      }
+    }
+    setIsListening(false);
+  };
+
   const handleMicPress = () => {
     if (isListening) {
-      setIsListening(false);
+      stopListening();
     } else {
-      setIsListening(true);
-      setInput('Can you explain this lesson step-by-step?');
-      setTimeout(() => setIsListening(false), 1500);
+      startListening();
     }
   };
 
   const handleWaveformPress = () => {
-    // If input is empty, waveform triggers a quick audio consultation prompt
-    handleSend('Hello Gemini! Give me a quick summary of my next study priorities.');
+    handleSend('Give me a quick summary of my next study priorities.');
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#FFFFFF' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    <Animated.View
+      style={{
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        opacity: screenFadeAnim,
+        transform: [
+          { translateY: screenSlideAnim },
+          { scale: screenScaleAnim },
+        ],
+        position: 'relative',
+        overflow: 'hidden',
+      }}
     >
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: 16,
-          paddingBottom: isKeyboardVisible
-            ? (Platform.OS === 'ios' ? 8 : 10)
-            : Math.max(insets.bottom, 14),
-        }}
+      {/* Static Raymarched Prism Background (Zoomed out, shifted more downwards) */}
+      <Prism
+        height={3.5}
+        baseWidth={5.5}
+        glow={1.1}
+        scale={1.5}
+        offset={{ x: 0, y: 260 }}
+        noise={0.2}
+        transparent={true}
+        lightMode={false}
+      />
+      <KeyboardAvoidingView
+        style={{ flex: 1, zIndex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-      {/* 1. TOP BAR */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 12,
-          zIndex: 20,
-        }}
-      >
-        <Pressable
-          onPress={onBack || (() => setShowPromptsSheet((prev) => !prev))}
-          accessibilityLabel={onBack ? 'Back' : 'Menu'}
-          style={({ pressed }) => [
-            { padding: 4, borderRadius: 8 },
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <Icon name={onBack ? 'arrow.left' : 'line.2.horizontal'} size={24} color={colors.ink} />
-        </Pressable>
-      </View>
-
-      {/* GEMINI SETUP GUIDE DRAWER */}
-      {showGuide && (
-        <Card
-          style={{
-            backgroundColor: '#FAFAFF',
-            borderColor: '#C7D2FE',
-            borderWidth: 1,
-            borderRadius: 18,
-            padding: 16,
-            marginBottom: 10,
-          }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name="sparkles" size={16} color="#6366F1" />
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E1B4B' }}>
-                Google Gemini API Setup
-              </Text>
-            </View>
-            <Pressable onPress={() => setShowGuide(false)}>
-              <Icon name="xmark" size={16} color="#6B7280" />
-            </Pressable>
-          </View>
-
-          <Text style={{ fontSize: 13, lineHeight: 19, color: '#374151', marginBottom: 10 }}>
-            Status:{' '}
-            <Text style={{ fontWeight: '700', color: aiStatus?.live ? '#059669' : '#D97706' }}>
-              {aiStatus?.live ? 'Live Google Gemini Connected' : 'Offline Preview Mode'}
-            </Text>
-            {'\n'}To connect your key, add <Text style={{ fontFamily: 'monospace' }}>GEMINI_API_KEY=AIzaSy...</Text> in your root <Text style={{ fontWeight: '600' }}>.env</Text> file.
-          </Text>
-
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button
-              title={statusChecking ? 'Checking…' : 'Recheck Status'}
-              busy={statusChecking}
-              onPress={checkStatus}
-            />
-            <Button
-              title="Close"
-              secondary
-              onPress={() => setShowGuide(false)}
-            />
-          </View>
-        </Card>
-      )}
-
-      {/* 2. MAIN CENTER CANVAS: (Matches Screenshot: Centered 4-Point Star + "Where should we start?") */}
-      {messages.length === 0 ? (
         <View
           style={{
             flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingHorizontal: 20,
+            paddingHorizontal: 16,
+            paddingBottom: isKeyboardVisible
+              ? (Platform.OS === 'ios' ? 8 : 10)
+              : Math.max(insets.bottom, 14),
           }}
         >
-          {/* Iconic Gemini 4-Point Gradient Star */}
-          <GeminiStar size={56} />
-
-          {/* Clean Centered Title (Exact phrasing and typography from screenshot) */}
-          <Text
-            style={{
-              fontSize: 28,
-              fontWeight: '400',
-              color: colors.ink,
-              marginTop: 22,
-              letterSpacing: -0.5,
-              textAlign: 'center',
-            }}
-          >
-            Where should we start?
-          </Text>
-        </View>
-      ) : (
-        /* CONVERSATION THREAD (When chat is active) */
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={{ gap: 14, paddingVertical: 10 }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          showsVerticalScrollIndicator={false}
-        >
-          {messages.map((m) =>
-            m.role === 'user' ? (
-              <SmoothUserBubble key={m.id} message={m} />
-            ) : (
-              <View
-                key={m.id}
-                style={{
-                  alignSelf: 'flex-start',
-                  width: '100%',
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: 20,
-                  borderBottomLeftRadius: 4,
-                  padding: 16,
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <GeminiStar size={16} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E1B4B' }}>Gemini</Text>
-                    <View style={{ backgroundColor: m.live ? '#ECFDF5' : '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: m.live ? '#059669' : '#D97706' }}>
-                        {m.live ? 'Gemini Flash' : 'Preview'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={{ fontSize: 11, color: colors.muted }}>{m.time}</Text>
-                </View>
-
-                <SmoothAssistantText
-                  text={m.content || 'No explanation returned.'}
-                  isStreaming={streamingMsgId === m.id}
-                  onStreamStep={() => {
-                    scrollRef.current?.scrollToEnd({ animated: true });
-                  }}
-                  onComplete={() => {
-                    setStreamingMsgId(null);
-                    setTimeout(() => {
-                      scrollRef.current?.scrollToEnd({ animated: true });
-                    }, 60);
-                  }}
-                />
-
-                {streamingMsgId !== m.id && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
-                    <Pressable
-                      onPress={() => handleCopy(m.id, m.content)}
-                      style={({ pressed }) => [
-                        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: copiedId === m.id ? '#DCFCE7' : '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
-                        pressed && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Icon name={copiedId === m.id ? 'checkmark' : 'doc.on.doc'} size={12} color={copiedId === m.id ? '#15803D' : '#4B5563'} />
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: copiedId === m.id ? '#15803D' : '#4B5563' }}>
-                        {copiedId === m.id ? 'Copied!' : 'Copy'}
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => open('book')}
-                      style={({ pressed }) => [
-                        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#C7D2FE' },
-                        pressed && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Icon name="calendar" size={12} color="#4F46E5" />
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#4F46E5' }}>
-                        Ask Teacher in Consultation
-                      </Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            ),
-          )}
-
-          {isThinking && (
-            <Animated.View
-              style={{
-                alignSelf: 'flex-start',
-                backgroundColor: '#F8FAFC',
-                borderRadius: 20,
-                borderBottomLeftRadius: 4,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderWidth: 1,
-                borderColor: '#E2E8F0',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.04,
-                shadowRadius: 8,
-                elevation: 1,
-              }}
-            >
-              <GeminiStar size={18} />
-              <ThreeDotsWave color="#6366F1" size={7} />
-            </Animated.View>
-          )}
-        </ScrollView>
-      )}
-
-      {/* QUICK PROMPT SUGGESTIONS SHEET (Toggled via [+] Button) */}
-      {showPromptsSheet && (
+        {/* 1. TOP BAR */}
         <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            padding: 14,
-            marginBottom: 10,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 10,
-            elevation: 4,
-            gap: 8,
-          }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>Quick Study Inquiries</Text>
-            <Pressable onPress={() => setShowPromptsSheet(false)}>
-              <Icon name="xmark" size={14} color="#6B7280" />
-            </Pressable>
-          </View>
-          {samplePrompts.map((p, idx) => (
-            <Pressable
-              key={idx}
-              onPress={() => handleSend(p.prompt)}
-              style={({ pressed }) => [
-                {
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  paddingVertical: 8,
-                  paddingHorizontal: 10,
-                  borderRadius: 12,
-                  backgroundColor: '#F9FAFB',
-                },
-                pressed && { backgroundColor: '#F3F4F6' },
-              ]}
-            >
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6366F1' }}>{p.tag}</Text>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink, marginTop: 1 }}>{p.title}</Text>
-              </View>
-              <Icon name="arrow.up" size={13} color="#9CA3AF" />
-            </Pressable>
-          ))}
-        </View>
-      )}
-
-      {/* 3. FLOATING GLASSMORPHIC CAPSULE INPUT DOCK */}
-      <View
-        style={[
-          {
-            borderRadius: 36,
-            overflow: 'hidden',
-            backgroundColor: 'rgba(255, 255, 255, 0.76)',
-            borderWidth: 1,
-            borderColor: 'rgba(255, 255, 255, 0.85)',
-            borderTopColor: 'rgba(255, 255, 255, 0.95)',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 20,
-            elevation: 6,
-          },
-          Platform.OS === 'web'
-            ? ({
-                backdropFilter: 'blur(24px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-              } as any)
-            : null,
-        ]}
-      >
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 75 : 45}
-          tint="light"
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingVertical: 6,
-            minHeight: 54,
-            gap: 10,
+            paddingVertical: 12,
+            zIndex: 20,
           }}
         >
-          {/* Left: Microphone Button */}
           <Pressable
-            onPress={handleMicPress}
-            accessibilityLabel="Voice Input"
+            onPress={onBack || (() => setShowPromptsSheet((prev) => !prev))}
+            accessibilityLabel={onBack ? 'Back' : 'Menu'}
             style={({ pressed }) => [
-              {
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: isListening ? '#FEE2E2' : 'transparent',
-              },
+              { padding: 4, borderRadius: 8 },
               pressed && { opacity: 0.6 },
             ]}
           >
-            <Icon name="mic" size={21} color={isListening ? '#DC2626' : '#6B7280'} />
+            <Icon name={onBack ? 'arrow.left' : 'line.2.horizontal'} size={24} color={colors.ink} />
           </Pressable>
+        </View>
 
-          {/* Center: TextInput with smooth typing effect placeholder aligned with mic icon */}
+        {/* AI STUDY ASSISTANT SETUP GUIDE DRAWER */}
+        {showGuide && (
+          <Card
+            style={{
+              backgroundColor: '#FAFAFF',
+              borderColor: '#C7D2FE',
+              borderWidth: 1,
+              borderRadius: 18,
+              padding: 16,
+              marginBottom: 10,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Icon name="sparkles" size={16} color="#111827" />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>
+                  AI Study Assistant Setup
+                </Text>
+              </View>
+              <Pressable onPress={() => setShowGuide(false)}>
+                <Icon name="xmark" size={16} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            <Text style={{ fontSize: 13, lineHeight: 19, color: '#374151', marginBottom: 10 }}>
+              Status:{' '}
+              <Text style={{ fontWeight: '700', color: aiStatus?.live ? '#059669' : '#D97706' }}>
+                {aiStatus?.live ? 'Live AI Service Connected' : 'Offline Preview Mode'}
+              </Text>
+              {'\n'}To connect your key, configure <Text style={{ fontFamily: 'monospace' }}>AI_API_KEY</Text> in your root <Text style={{ fontWeight: '600' }}>.env</Text> file.
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button
+                title={statusChecking ? 'Checking…' : 'Recheck Status'}
+                busy={statusChecking}
+                onPress={checkStatus}
+              />
+              <Button
+                title="Close"
+                secondary
+                onPress={() => setShowGuide(false)}
+              />
+            </View>
+          </Card>
+        )}
+
+        {/* 2. MAIN CENTER CANVAS: Minimal, Clean Black & White Aesthetic */}
+        {messages.length === 0 ? (
           <View
             style={{
               flex: 1,
-              height: 40,
               justifyContent: 'center',
-              position: 'relative',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingBottom: 150,
             }}
           >
-            {/* Animated Typewriter Placeholder (Shown only when input is empty) */}
-            {!input && (
-              <View
-                pointerEvents="none"
+            {/* Clean Centered Title */}
+            <Text
+              style={{
+                fontSize: 28,
+                fontWeight: '400',
+                color: colors.ink,
+                letterSpacing: -0.5,
+                textAlign: 'center',
+              }}
+            >
+              Where should we start?
+            </Text>
+          </View>
+        ) : (
+          /* CONVERSATION THREAD (When chat is active) */
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={{ gap: 14, paddingVertical: 10 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+          >
+            {messages.map((m) =>
+              m.role === 'user' ? (
+                <SmoothUserBubble key={m.id} message={m} />
+              ) : (
+                <View
+                  key={m.id}
+                  style={{
+                    alignSelf: 'flex-start',
+                    width: '100%',
+                    backgroundColor: '#F8FAFC',
+                    borderRadius: 20,
+                    borderBottomLeftRadius: 4,
+                    padding: 16,
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Icon name="sparkles" size={14} color="#111827" />
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>AI Assistant</Text>
+                      <View style={{ backgroundColor: m.live ? '#ECFDF5' : '#F3F4F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: m.live ? '#059669' : '#6B7280' }}>
+                          {m.live ? 'Online' : 'Preview'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>{m.time}</Text>
+                  </View>
+
+                  <SmoothAssistantText
+                    text={m.content || 'No explanation returned.'}
+                    isStreaming={streamingMsgId === m.id}
+                    onStreamStep={() => {
+                      scrollRef.current?.scrollToEnd({ animated: true });
+                    }}
+                    onComplete={() => {
+                      setStreamingMsgId(null);
+                      setTimeout(() => {
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      }, 60);
+                    }}
+                  />
+                </View>
+              ),
+            )}
+
+            {isThinking && (
+              <Animated.View
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
+                  alignSelf: 'flex-start',
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: 20,
+                  borderBottomLeftRadius: 4,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
                   flexDirection: 'row',
                   alignItems: 'center',
+                  gap: 10,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 8,
+                  elevation: 1,
                 }}
               >
-                <Text
-                  numberOfLines={1}
+                <Icon name="sparkles" size={16} color="#111827" />
+                <ThreeDotsWave color="#111827" size={7} />
+              </Animated.View>
+            )}
+          </ScrollView>
+        )}
+
+        {/* QUICK PROMPT SUGGESTIONS SHEET (Toggled via [+] Button) */}
+        {showPromptsSheet && (
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              padding: 14,
+              marginBottom: 10,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 10,
+              elevation: 4,
+              gap: 8,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>Quick Study Inquiries</Text>
+              <Pressable onPress={() => setShowPromptsSheet(false)}>
+                <Icon name="xmark" size={14} color="#6B7280" />
+              </Pressable>
+            </View>
+            {samplePrompts.map((p, idx) => (
+              <Pressable
+                key={idx}
+                onPress={() => handleSend(p.prompt)}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                    borderRadius: 12,
+                    backgroundColor: '#F9FAFB',
+                  },
+                  pressed && { backgroundColor: '#F3F4F6' },
+                ]}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#6366F1' }}>{p.tag}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink, marginTop: 1 }}>{p.title}</Text>
+                </View>
+                <Icon name="arrow.up" size={13} color="#9CA3AF" />
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* Selected Lesson Image Preview Badge */}
+        {selectedImage && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              alignSelf: 'flex-start',
+              backgroundColor: 'rgba(255, 255, 255, 0.92)',
+              borderRadius: 16,
+              padding: 6,
+              paddingRight: 10,
+              marginBottom: 8,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 2,
+              gap: 8,
+            }}
+          >
+            <Image
+              source={{ uri: selectedImage.previewUrl }}
+              style={{ width: 34, height: 34, borderRadius: 10 }}
+              resizeMode="cover"
+            />
+            <View style={{ maxWidth: 170 }}>
+              <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: colors.ink }}>
+                {selectedImage.name || 'Lesson Sheet'}
+              </Text>
+              <Text style={{ fontSize: 10, fontWeight: '600', color: '#059669' }}>
+                Gemini Vision Ready
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setSelectedImage(null)}
+              accessibilityLabel="Remove attached image"
+              style={({ pressed }) => [
+                {
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: '#F3F4F6',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginLeft: 2,
+                },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <Icon name="xmark" size={11} color="#6B7280" />
+            </Pressable>
+          </View>
+        )}
+
+        {/* 3. FLOATING GLASSMORPHIC CAPSULE INPUT DOCK WITH MOVING RAINBOW BORDER */}
+        <Animated.View
+          style={[
+            {
+              borderRadius: 36,
+              padding: isListening ? 2.5 : 0,
+              transition: 'all 0.35s ease',
+            } as any,
+            Platform.OS === 'web' && isListening
+              ? ({
+                  background:
+                    'linear-gradient(115deg, #FF2D55 0%, #FF9500 16%, #FFCC00 32%, #34C759 48%, #007AFF 64%, #5856D6 80%, #AF52DE 92%, #FF2D55 100%)',
+                  backgroundSize: '300% 300%',
+                  animation: 'rainbowBorder 2.4s linear infinite, rainbowGlowPulse 2.2s ease-in-out infinite',
+                } as any)
+              : Platform.OS !== 'web' && isListening
+              ? {
+                  borderWidth: 2.5,
+                  borderColor: rainbowBorderColor,
+                }
+              : null,
+          ]}
+        >
+          <View
+            style={[
+              {
+                borderRadius: isListening ? 33.5 : 36,
+                overflow: 'hidden',
+                backgroundColor: isListening ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.35)',
+                borderWidth: isListening ? 0 : 1,
+                borderColor: 'rgba(255, 255, 255, 0.65)',
+                borderTopColor: 'rgba(255, 255, 255, 0.95)',
+                borderBottomColor: 'rgba(255, 255, 255, 0.30)',
+                shadowColor: isListening ? '#6366F1' : '#000',
+                shadowOffset: { width: 0, height: isListening ? 6 : 8 },
+                shadowOpacity: isListening ? 0.25 : 0.08,
+                shadowRadius: isListening ? 24 : 24,
+                elevation: 6,
+              },
+              Platform.OS === 'web'
+                ? ({
+                    backdropFilter: 'blur(30px) saturate(190%)',
+                    WebkitBackdropFilter: 'blur(30px) saturate(190%)',
+                    boxShadow: isListening
+                      ? '0 8px 32px rgba(99, 102, 241, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.8)'
+                      : '0 8px 32px rgba(0, 0, 0, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.8)',
+                  } as any)
+                : null,
+            ]}
+          >
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 85 : 55}
+              tint="light"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingLeft: 10,
+                paddingRight: 8,
+                paddingVertical: 6,
+                minHeight: 54,
+                gap: 8,
+                backgroundColor: 'transparent',
+              }}
+            >
+              {/* 1. FAR LEFT: Upload Lesson Photo / Camera Button */}
+              <Pressable
+                onPress={handlePickImage}
+                accessibilityLabel="Upload Lesson Photo or Document"
+                style={({ pressed }) => [
+                  {
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: selectedImage ? '#EEF2FF' : 'transparent',
+                  },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <Icon
+                  name="camera"
+                  size={21}
+                  color={selectedImage ? '#4F46E5' : '#8E8E93'}
+                />
+              </Pressable>
+
+              {/* Wave Frequency Visualizer on the Typing Bar */}
+              {isListening && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 }}>
+                  <WaveFrequencyBars isListening={isListening} />
+                </View>
+              )}
+
+              {/* 2. CENTER: TextInput / Live Speech Transcription / Animated Typewriter Placeholder */}
+              <View
+                style={{
+                  flex: 1,
+                  height: 40,
+                  justifyContent: 'center',
+                  position: 'relative',
+                }}
+              >
+                {/* Listening indicator when input is empty */}
+                {isListening && !input ? (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '500',
+                        color: '#8E8E93',
+                        fontFamily: fontStack,
+                      }}
+                    >
+                      Listening… Speak now
+                    </Text>
+                  </View>
+                ) : !input ? (
+                  /* Animated Typewriter Placeholder */
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 15,
+                        fontFamily: fontStack,
+                        color: '#8E8E93',
+                        lineHeight: 20,
+                      }}
+                    >
+                      {selectedImage ? (
+                        'Ask about this lesson…'
+                      ) : (
+                        <>
+                          Ask me{' '}
+                          <Text style={{ color: '#8E8E93', fontWeight: '400' }}>
+                            {typingEffectText}
+                          </Text>
+                          <Text style={{ color: '#8E8E93', opacity: cursorVisible ? 1 : 0 }}>|</Text>
+                        </>
+                      )}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <TextInput
+                  value={input}
+                  onChangeText={setInput}
+                  onSubmitEditing={() => {
+                    if (isListening) stopListening();
+                    handleSend();
+                  }}
+                  returnKeyType="send"
+                  maxLength={1000}
+                  multiline={false}
                   style={{
                     fontSize: 15,
                     fontFamily: fontStack,
-                    color: '#8E8E93',
-                    lineHeight: 20,
+                    color: colors.ink,
+                    paddingVertical: 0,
+                    paddingHorizontal: 0,
+                    margin: 0,
+                    height: 40,
+                    textAlignVertical: 'center',
+                    backgroundColor: 'transparent',
+                    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
                   }}
-                >
-                  Ask me{' '}
-                  <Text style={{ color: colors.ink, fontWeight: '500' }}>
-                    {typingEffectText}
-                  </Text>
-                  <Text style={{ color: '#8E8E93', opacity: cursorVisible ? 1 : 0 }}>|</Text>
-                </Text>
+                />
               </View>
-            )}
 
-            <TextInput
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={() => handleSend()}
-              returnKeyType="send"
-              maxLength={1000}
-              multiline={false}
-              style={{
-                fontSize: 15,
-                fontFamily: fontStack,
-                color: colors.ink,
-                paddingVertical: 0,
-                paddingHorizontal: 0,
-                margin: 0,
-                height: 40,
-                textAlignVertical: 'center',
-                backgroundColor: 'transparent',
-                ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
-              }}
-            />
+              {/* 3. FAR RIGHT: Microphone Button + Enter Button side-by-side */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {/* Microphone Button (Speech to Text) */}
+                <Pressable
+                  onPress={handleMicPress}
+                  accessibilityLabel={isListening ? 'Stop Listening' : 'Voice Input'}
+                  style={({ pressed }) => [
+                    {
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isListening ? '#FEE2E2' : 'transparent',
+                    },
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Icon name="mic" size={21} color={isListening ? '#EF4444' : '#8E8E93'} />
+                </Pressable>
+
+                {/* Enter Button (Black #111827) */}
+                <Pressable
+                  onPress={() => {
+                    if (isListening) {
+                      stopListening();
+                      if (input.trim() || selectedImage) handleSend();
+                    } else if (input.trim() || selectedImage) {
+                      handleSend();
+                    } else {
+                      handleWaveformPress();
+                    }
+                  }}
+                  disabled={isThinking}
+                  accessibilityLabel={
+                    input.trim() || selectedImage
+                      ? 'Send to Tutor'
+                      : isListening
+                      ? 'Send or Stop'
+                      : 'Ask Tutor'
+                  }
+                  style={({ pressed }) => [
+                    {
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      backgroundColor: '#111827',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'background-color 0.25s ease',
+                    } as any,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  {isThinking ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : isListening ? (
+                    <Icon name="arrow.right" size={17} color="#FFFFFF" />
+                  ) : input.trim() || selectedImage ? (
+                    <Icon name="arrow.up" size={17} color="#FFFFFF" />
+                  ) : (
+                    <Icon name="waveform" size={17} color="#FFFFFF" />
+                  )}
+                </Pressable>
+              </View>
+            </BlurView>
           </View>
-
-          {/* Far Right: Circular Waveform (|||) or Send Arrow Button */}
-          <Pressable
-            onPress={() => (input.trim() ? handleSend() : handleWaveformPress())}
-            disabled={isThinking}
-            accessibilityLabel={input.trim() ? 'Send' : 'Live Voice Session'}
-            style={({ pressed }) => [
-              {
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: input.trim() ? '#007AFF' : '#1E3A8A',
-                alignItems: 'center',
-                justifyContent: 'center',
-              },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            {isThinking ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : input.trim() ? (
-              <Icon name="arrow.up" size={18} color="#FFFFFF" />
-            ) : (
-              <Icon name="waveform" size={18} color="#FFFFFF" />
-            )}
-          </Pressable>
-        </BlurView>
+        </Animated.View>
       </View>
-    </View>
-  </KeyboardAvoidingView>
+    </KeyboardAvoidingView>
+  </Animated.View>
 );
 }
 

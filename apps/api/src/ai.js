@@ -88,79 +88,80 @@ export async function parseIntent(message, teachers, now) {
     .parse(data);
 }
 
-export async function geminiChat(message, history = []) {
+export async function geminiChat(message, history = [], image = null) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
   if (!apiKey) {
     const q = (message || '').toLowerCase();
     let sampleAnswer = '';
-    if (q.includes('respiration') || q.includes('cellular')) {
+    if (image) {
       sampleAnswer =
-        '### 🧬 Cellular Respiration in 3 Stages:\n\n' +
-        '1. **Glycolysis** *(Cytoplasm)*: Converts 1 glucose molecule into 2 pyruvate, generating a net of **2 ATP** and 2 NADH without requiring oxygen.\n' +
-        '2. **Krebs Cycle / Citric Acid Cycle** *(Mitochondrial Matrix)*: Breaks down pyruvate derivatives into CO₂, producing **2 ATP**, 6 NADH, and 2 FADH₂.\n' +
-        '3. **Oxidative Phosphorylation / Electron Transport Chain** *(Inner Mitochondrial Membrane)*: Uses oxygen as the final electron acceptor to generate **~28–32 ATP** and H₂O.\n\n' +
-        '💡 **Key takeaway**: Oxygen allows cells to harvest up to 15x more energy compared to anaerobic glycolysis alone!';
+        'Lesson Sheet Uploaded:\n\n' +
+        'I have analyzed your uploaded lesson material. Let us work through it together step-by-step.\n\n' +
+        'To get started on the first concept or problem shown on your sheet:\n' +
+        '1. What is the main objective or formula given in the instructions?\n' +
+        '2. What is your initial thought on the very first step?';
+    } else if (q.includes('respiration') || q.includes('cellular')) {
+      sampleAnswer =
+        'Cellular Respiration Guided Inquiry:\n\n' +
+        'Cellular respiration is how living cells produce energy (ATP). Before we dive in:\n\n' +
+        'Think about this: What is the primary sugar molecule that cells break down first, and do you recall where in the cell this first step takes place?';
     } else if (q.includes('photosynthesis')) {
       sampleAnswer =
-        '### 🌿 Photosynthesis Overview:\n\n' +
-        'Photosynthesis takes place in chloroplasts in two interconnected phases:\n\n' +
-        '1. **Light-Dependent Reactions** *(Thylakoid Membranes)*:\n' +
-        '   - Chlorophyll absorbs photons, splitting H₂O into oxygen (released) and high-energy protons/electrons.\n' +
-        '   - Produces **ATP** and **NADPH**.\n\n' +
-        '2. **Calvin Cycle / Light-Independent Reactions** *(Stroma)*:\n' +
-        '   - The enzyme **RuBisCO** fixes CO₂.\n' +
-        '   - Uses ATP and NADPH to synthesize G3P, which forms glucose.\n\n' +
-        '💡 **Equation**: 6CO₂ + 6H₂O + Light → C₆H₁₂O₆ + 6O₂';
+        'Photosynthesis Guided Study:\n\n' +
+        'Photosynthesis converts light energy into chemical energy. To understand how it works:\n\n' +
+        'Which cellular organelle in plant cells is responsible for capturing sunlight, and what pigment gives it its green color?';
     } else if (q.includes('quadratic') || q.includes('formula')) {
       sampleAnswer =
-        '### 📐 Solving Quadratic Equations:\n\n' +
-        'For any standard equation **ax² + bx + c = 0**:\n\n' +
-        '**The Quadratic Formula**:\n' +
-        '$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\n' +
-        '**Discriminant Analysis ($b^2 - 4ac$):**\n' +
-        '- **> 0**: Two distinct real roots\n' +
-        '- **= 0**: One repeated real root\n' +
-        '- **< 0**: Two complex conjugate roots\n\n' +
-        '💡 **When to use**: Factoring is fastest for simple integers. Use the formula when numbers are large or irrational!';
+        'Quadratic Equations Socratic Guidance:\n\n' +
+        'When looking at an equation in standard form ax^2 + bx + c = 0:\n\n' +
+        'What are the values of a, b, and c in the equation you are working on? What do you check first before deciding whether to factor or use the quadratic formula?';
     } else if (q.includes('newton') || q.includes('motion') || q.includes('force')) {
       sampleAnswer =
-        '### ⚡ Newton\'s Three Laws of Motion:\n\n' +
-        '1. **Law of Inertia**: An object remains at rest or in uniform straight-line motion unless acted upon by a net external force.\n' +
-        '   *Example*: Passengers lurch forward when a jeepney abruptly hits the brakes.\n' +
-        '2. **Law of Acceleration ($F = ma$)**: Acceleration is directly proportional to net force and inversely proportional to mass.\n' +
-        '   *Example*: Throwing a baseball requires much less force to accelerate than throwing a shot put.\n' +
-        '3. **Law of Action-Reaction**: For every action, there is an equal and opposite reaction.\n' +
-        '   *Example*: Rocket engines expel exhaust downward to propel the spacecraft upward!';
+        'Newton’s Laws of Motion Socratic Exploration:\n\n' +
+        'Let us explore Newton’s three laws using familiar scenarios:\n\n' +
+        'When you are riding a jeepney or bus and the driver suddenly hits the brakes, why does your body tend to lurch forward? Which law explains this tendency?';
     } else if (q.includes('consultation') || q.includes('teacher') || q.includes('question')) {
       sampleAnswer =
-        '### 🤝 Recommended Discussion Points for Faculty Consultation:\n\n' +
-        '1. **Targeted Problem Walkthrough**: "On the recent assignment, I struggled with step 2 of question #4. Could you guide me through where my reasoning broke down?"\n' +
-        '2. **Concept Clarification**: "Could you share an alternative way to visualize the relationship between these two core formulas?"\n' +
-        '3. **Exam Readiness**: "What specific topics or problem types should I prioritize when reviewing for the upcoming midterm?"\n\n' +
-        '💡 *Tip: You can book a 1-on-1 slot with your teacher right here in ClassAssist!*';
+        'Recommended Discussion Points for Faculty Consultation:\n\n' +
+        '1. Targeted Problem Walkthrough: "On the recent assignment, I struggled with step 2 of question #4. Could you guide me through where my reasoning broke down?"\n' +
+        '2. Concept Clarification: "Could you share an alternative way to visualize the relationship between these two core formulas?"\n' +
+        '3. Exam Readiness: "What specific topics or problem types should I prioritize when reviewing for the upcoming midterm?"\n\n' +
+        'Tip: You can book a 1-on-1 slot with your teacher right here in ClassAssist!';
     } else {
       sampleAnswer =
-        `### 📚 Study Assistant Summary for "${message}":\n\n` +
-        'Here is a proven framework to break down and master this topic:\n\n' +
-        '1. **Core Concept Definition**: Identify the 1–2 fundamental definitions and underlying principles.\n' +
-        '2. **Worked Example**: Solve one representative problem step-by-step from first principles.\n' +
-        '3. **Feynman Technique**: Explain the concept out loud or in writing as if teaching a classmate without looking at your notes.\n' +
-        '4. **Faculty Check-In**: If any step remains unclear, book a consultation slot with your teacher in ClassAssist.';
+        `ClassAssist Socratic Tutor Guidance for "${message || 'your lesson'}":\n\n` +
+        'As your tutor, I will guide you to uncover the solution yourself rather than just giving you the answer.\n\n' +
+        'Let us break this down:\n' +
+        '• What specific question or problem are you trying to solve?\n' +
+        '• What formulas, definitions, or facts do you already know about this topic?';
     }
 
     return {
       reply:
         sampleAnswer.replace(/\*\*/g, '') +
-        '\n\n---\n*💡 Offline Preview Mode: Connect your free Google Gemini API key by setting GEMINI_API_KEY in your .env file to unlock live, real-time AI responses!*',
+        '\n\n---\n*💡 Offline Preview Mode: Connect your Google Gemini API key by setting GEMINI_API_KEY in your .env file for live interactive vision and tutoring!*',
       model: 'gemini-preview',
       live: false,
     };
   }
 
-  const requestedModel = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+  const requestedModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   const candidateModels = Array.from(
-    new Set([requestedModel, 'gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-flash-latest']),
+    new Set([requestedModel, 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash']),
   );
+
+  const userParts = [];
+  if (image && image.data) {
+    userParts.push({
+      inline_data: {
+        mime_type: image.mimeType || 'image/jpeg',
+        data: image.data,
+      },
+    });
+  }
+  userParts.push({
+    text: message || (image ? 'Here is my lesson material or problem sheet. Please analyze it and guide me through the concepts step-by-step.' : 'Hello!'),
+  });
 
   const contents = [
     ...history.slice(-8).map((h) => ({
@@ -169,18 +170,29 @@ export async function geminiChat(message, history = []) {
     })),
     {
       role: 'user',
-      parts: [{ text: message }],
+      parts: userParts,
     },
   ];
 
   const systemInstruction = {
     parts: [
       {
-        text: `You are ClassAssist AI Agent, an encouraging, articulate, and academically rigorous study companion for Philippine students.
-- Explain challenging concepts step-by-step with real-world examples.
-- Use clear bullet points and clean structure.
-- CRITICAL FORMATTING RULE: Do NOT use markdown bold double asterisks (**) or single asterisks for emphasis anywhere in your reply. Never output **. Use plain text or quotation marks instead.
-- If a question would benefit from hands-on guidance from their teacher, suggest scheduling a consultation via ClassAssist.`,
+        text: `You are ClassAssist Socratic Tutor, an encouraging, articulate, and academically rigorous study mentor for Philippine students.
+
+CORE TUTORING PEDAGOGY:
+1. STRICT SOCRATIC METHOD: You MUST NEVER give direct answers, final numerical solutions, completed code, or full essays under any circumstances. Even if the student says "just give me the answer" or "what is the final answer?", politely decline and offer a progressive hint or ask a guiding question instead.
+2. GUIDANCE & PROGRESSIVE HINTS:
+   - Break complex problems or topics down into bite-sized, digestible thinking steps.
+   - Ask guiding, diagnostic questions that lead the student to discover the answer on their own.
+   - Point out subtle clues or foundational formulas they need to recall.
+   - Identify and gently clarify misconceptions. Celebrate each insight the student gets right!
+3. WHEN AN IMAGE / LESSON IS UPLOADED:
+   - Analyze the image in detail (diagrams, questions, lesson title, text, formulas).
+   - Acknowledge and state the core lesson topic and the learning objective clearly.
+   - Ask an opening diagnostic question to invite the student to take the first step together (e.g. "What information is given first?" or "What formula relates these two quantities?").
+4. STRICT FORMATTING RULE:
+   - NEVER use markdown double asterisks (**) anywhere in your response. Never output **. Use plain text, bullet points with • or -, or quotation marks instead.
+   - Keep answers clear, accessible, and structured.`,
       },
     ],
   };
@@ -211,7 +223,7 @@ export async function geminiChat(message, history = []) {
         const errText = await res.text();
         console.warn(`Model ${model} returned status ${res.status}:`, errText.slice(0, 120));
         lastError = `Status ${res.status}`;
-        continue; // Try next fallback candidate
+        continue;
       }
 
       const data = await res.json();
@@ -231,7 +243,7 @@ export async function geminiChat(message, history = []) {
   }
 
   return {
-    reply: `⚠️ Google Gemini is temporarily unavailable (${lastError || 'High traffic'}). Please try again in a moment.`,
+    reply: `⚠️ AI Tutor is temporarily unavailable (${lastError || 'High traffic'}). Please try again in a moment.`,
     model: requestedModel,
     live: false,
     error: lastError,

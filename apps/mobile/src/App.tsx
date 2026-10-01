@@ -47,6 +47,7 @@ import {
   Roster,
 } from './screens';
 import { CreateDraft, Quiz, Review, Submissions } from './assessment-screens';
+import { QuizGeneratorScreen } from './quiz-generator-modal';
 import { AuthFlow } from './auth-flow';
 import type { Assessment, Config, Notice, Profile } from './types';
 
@@ -69,6 +70,28 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         background-color: #F2F2F7;
+      }
+      @keyframes rainbowBorder {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+      @keyframes rainbowGlowPulse {
+        0% {
+          box-shadow: 0 0 14px rgba(255, 45, 85, 0.4), 0 0 24px rgba(0, 122, 255, 0.35);
+        }
+        50% {
+          box-shadow: 0 0 24px rgba(175, 82, 222, 0.65), 0 0 36px rgba(52, 199, 89, 0.5);
+        }
+        100% {
+          box-shadow: 0 0 14px rgba(255, 45, 85, 0.4), 0 0 24px rgba(0, 122, 255, 0.35);
+        }
       }
     `;
     document.head.appendChild(style);
@@ -156,7 +179,7 @@ function Root() {
 const studentTabs: { key: string; label: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', icon: 'house.fill' },
   { key: 'review', label: 'Review', icon: 'doc.text' },
-  { key: 'agent', label: 'Agent', icon: 'plus' },
+  { key: 'agent', label: 'Agent', icon: 'sparkles' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar' },
   { key: 'profile', label: 'Profile', icon: 'person.fill' },
 ];
@@ -184,12 +207,21 @@ function Workspace({
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     [error, setError] = useState(''),
-    [modal, setModal] = useState<{ kind: string; id?: string }>();
+    [modal, setModal] = useState<{ kind: string; id?: string }>(),
+    [standaloneScreen, setStandaloneScreen] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
   const open = useCallback((kind: string, id?: string) => {
     setError('');
     setMessage('');
+    if (kind === 'quiz-gen' || kind === 'quiz_generator') {
+      setStandaloneScreen('quiz-gen');
+      return;
+    }
+    if (kind === 'agent') {
+      setTab('agent');
+      return;
+    }
     setModal({ kind, id });
   }, []);
   const act = async <T,>(fn: () => Promise<T>, success?: string): Promise<T | undefined> => {
@@ -321,6 +353,22 @@ function Workspace({
         );
     }
   };
+
+  if (standaloneScreen === 'quiz-gen') {
+    return (
+      <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <QuizGeneratorScreen
+            onBack={() => {
+              setStandaloneScreen(null);
+              refresh();
+            }}
+          />
+        </View>
+      </AppContext.Provider>
+    );
+  }
+
   return (
     <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
       <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
@@ -365,11 +413,12 @@ function Workspace({
         )}
         {tab !== 'agent' && (
           <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 16) }]}>
-            {/* 1. Main Frosted Glass Capsule Pill */}
+            {/* Single Unified Frosted Glass Capsule Navbar */}
             <View style={styles.dockContainer}>
               <BlurView intensity={Platform.OS === 'ios' ? 80 : 50} tint="light" style={styles.dock}>
                 {tabs.map((t) => {
                   const isSelected = tab === t.key;
+                  const isAgent = t.key === 'agent' || t.key === 'assistant';
                   return (
                     <Pressable
                       key={t.key}
@@ -387,16 +436,39 @@ function Workspace({
                         pressed && styles.tabPressed,
                       ]}
                     >
-                      <View style={[styles.tabContent, isSelected && styles.activeTabChip]}>
+                      <View
+                        style={[
+                          styles.tabContent,
+                          isAgent
+                            ? {
+                                backgroundColor: isSelected ? '#000000' : '#111827',
+                                paddingHorizontal: 16,
+                                paddingVertical: 7,
+                                borderRadius: 22,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.22,
+                                shadowRadius: 8,
+                                elevation: 5,
+                              }
+                            : isSelected
+                            ? styles.activeTabChip
+                            : null,
+                        ]}
+                      >
                         <Icon
                           name={t.icon}
-                          size={22}
-                          color={isSelected ? '#111827' : '#6B7280'}
+                          size={isAgent ? 21 : 21}
+                          color={isAgent ? '#FFFFFF' : isSelected ? '#111827' : '#6B7280'}
                         />
                         <Text
                           style={[
                             styles.tabLabel,
-                            isSelected ? styles.activeTabLabel : styles.inactiveTabLabel,
+                            isAgent
+                              ? { color: '#FFFFFF', fontWeight: '700', fontSize: 11 }
+                              : isSelected
+                              ? styles.activeTabLabel
+                              : styles.inactiveTabLabel,
                           ]}
                           numberOfLines={1}
                         >
@@ -406,23 +478,6 @@ function Workspace({
                     </Pressable>
                   );
                 })}
-              </BlurView>
-            </View>
-
-            {/* 2. Separate Circular Glass More Button */}
-            <View style={styles.moreWrap}>
-              <BlurView intensity={Platform.OS === 'ios' ? 80 : 50} tint="light" style={styles.moreBlur}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="More options"
-                  onPress={() => open('notifications')}
-                  style={({ pressed }) => [
-                    styles.moreButton,
-                    pressed && styles.moreButtonPressed,
-                  ]}
-                >
-                  <Icon name="ellipsis.vertical" size={21} color="#374151" />
-                </Pressable>
               </BlurView>
             </View>
           </View>
@@ -538,18 +593,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
     zIndex: 100,
   },
   dockContainer: {
     flex: 1,
-    maxWidth: 420,
+    maxWidth: 440,
     height: 68,
     borderRadius: 34,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     borderTopColor: 'rgba(255, 255, 255, 0.90)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },

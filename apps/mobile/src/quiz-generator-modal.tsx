@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Modal,
   View,
   Text,
   Pressable,
@@ -13,6 +12,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
   Button,
@@ -48,6 +48,11 @@ export interface EssayEvaluation {
   strengths: string;
   improvements: string;
   modelAnswer: string;
+}
+
+export interface QuizGeneratorScreenProps {
+  onBack: () => void;
+  initialStep?: Step;
 }
 
 export interface QuizGeneratorModalProps {
@@ -250,8 +255,8 @@ function AgentThinkingWidget({
   );
 }
 
-export function QuizGeneratorModal({ visible, onClose }: QuizGeneratorModalProps) {
-  const [step, setStep] = useState<Step>('source');
+export function QuizGeneratorScreen({ onBack, initialStep = 'source' }: QuizGeneratorScreenProps) {
+  const [step, setStep] = useState<Step>(initialStep);
   const [sourceType, setSourceType] = useState<'camera' | 'upload' | null>(null);
   const [fileName, setFileName] = useState('');
   const [fileContent, setFileContent] = useState('');
@@ -276,7 +281,7 @@ export function QuizGeneratorModal({ visible, onClose }: QuizGeneratorModalProps
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const resetAll = () => {
-    setStep('source');
+    setStep(initialStep);
     setSourceType(null);
     setFileName('');
     setFileContent('');
@@ -293,7 +298,7 @@ export function QuizGeneratorModal({ visible, onClose }: QuizGeneratorModalProps
 
   const handleClose = () => {
     resetAll();
-    onClose();
+    onBack();
   };
 
   // 1. File Handling
@@ -541,7 +546,7 @@ Return strictly a valid JSON object matching this schema without markdown fences
   const answeredCount = Object.keys(userAnswers).filter((k) => (userAnswers[k] || '').trim()).length;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <SafeAreaView style={screenStyles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Hidden Web Inputs */}
       {Platform.OS === 'web' && (
         <>
@@ -569,304 +574,235 @@ Return strictly a valid JSON object matching this schema without markdown fences
         </>
       )}
 
-      <View style={modalStyles.overlay}>
-        <Pressable style={modalStyles.backdrop} onPress={handleClose} />
+      {/* Standalone Screen Header Bar */}
+      <View style={screenStyles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+          <Pressable
+            onPress={() => {
+              if (step === 'question_count') {
+                setStep('quiz_type');
+              } else if (step === 'quiz_type') {
+                setStep('source');
+              } else {
+                handleClose();
+              }
+            }}
+            style={screenStyles.headerBackBtn}
+            accessibilityLabel="Go back"
+          >
+            <Icon name="arrow.left" size={17} color={colors.ink} />
+          </Pressable>
+          <Text style={screenStyles.title}>
+            {step === 'source' && 'AI Quiz Generator'}
+            {step === 'quiz_type' && 'Quiz Options'}
+            {step === 'question_count' && 'Quiz Options'}
+            {step === 'generating' && 'Agent Thinking'}
+            {step === 'taking' && `Question ${currentIndex + 1} of ${questions.length}`}
+            {step === 'evaluating' && 'Scoring with AI'}
+            {step === 'summary' && 'Quiz Results'}
+          </Text>
+        </View>
+        <Pressable onPress={handleClose} style={screenStyles.closeBtn} accessibilityLabel="Close quiz generator">
+          <Icon name="xmark" size={16} color={colors.ink} />
+        </Pressable>
+      </View>
 
-        <View style={modalStyles.sheetContainer}>
-          {/* Top Sheet Drag Pill */}
-          <View style={modalStyles.dragPillWrap}>
-            <View style={modalStyles.dragPill} />
-          </View>
+      {errorMsg ? (
+        <View style={[s.error, { marginHorizontal: 20, marginTop: 10, marginBottom: 4 }]}>
+          <Text style={s.errorText}>{errorMsg}</Text>
+        </View>
+      ) : null}
 
-          {/* Modal Header */}
-          <View style={modalStyles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-              {(step === 'quiz_type' || step === 'question_count') && (
-                <Pressable
-                  onPress={() => {
-                    if (step === 'quiz_type') setStep('source');
-                    if (step === 'question_count') setStep('quiz_type');
-                  }}
-                  style={modalStyles.headerBackBtn}
-                >
-                  <Icon name="arrow.left" size={16} color={colors.ink} />
-                </Pressable>
-              )}
-              <Text style={modalStyles.title}>
-                {step === 'source' && 'AI Quiz Generator'}
-                {step === 'quiz_type' && 'Quiz Options'}
-                {step === 'question_count' && 'Quiz Options'}
-                {step === 'generating' && 'Agent Thinking'}
-                {step === 'taking' && `Question ${currentIndex + 1} of ${questions.length}`}
-                {step === 'evaluating' && 'Scoring with AI'}
-                {step === 'summary' && 'Quiz Results'}
-              </Text>
-            </View>
-            <Pressable onPress={handleClose} style={modalStyles.closeBtn}>
-              <Icon name="xmark" size={16} color={colors.ink} />
+      {/* ========================================================= */}
+      {/* STEP 0: SOURCE SELECT (CAMERA OR UPLOAD)                 */}
+      {/* ========================================================= */}
+      {step === 'source' && (
+        <ScrollView contentContainerStyle={screenStyles.bodyContent}>
+          <Text style={screenStyles.subtitle}>
+            Choose how you want to provide your lesson material. The AI will extract key concepts and formulate curriculum questions.
+          </Text>
+
+          <View style={{ gap: 12, marginTop: 16 }}>
+            {/* 1. Camera / Photo Option */}
+            <Pressable
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  cameraInputRef.current?.click();
+                } else {
+                  Alert.alert('Camera', 'Please choose a photo from your gallery or camera (JPG/PNG).');
+                }
+              }}
+              style={({ pressed }) => [screenStyles.sourceCard, pressed && screenStyles.cardPressed]}
+            >
+              <Icon name="camera" size={26} color={colors.ink} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={screenStyles.cardTitle}>Take a Photo / Camera</Text>
+                <Text style={screenStyles.cardDesc}>
+                  Snap a photo of your physical notebook, textbook, or printed handout.
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* 2. Upload Document Option */}
+            <Pressable
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  docInputRef.current?.click();
+                } else {
+                  Alert.alert('Document Upload', 'Select a PDF or Word document.');
+                }
+              }}
+              style={({ pressed }) => [screenStyles.sourceCard, pressed && screenStyles.cardPressed]}
+            >
+              <Icon name="arrow.up.doc" size={26} color={colors.ink} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={screenStyles.cardTitle}>Upload Document</Text>
+                <Text style={screenStyles.cardDesc}>
+                  Upload your lesson PDF or Word document directly from your device files.
+                </Text>
+              </View>
             </Pressable>
           </View>
+        </ScrollView>
+      )}
 
-          {errorMsg ? (
-            <View style={[s.error, { marginHorizontal: 20, marginBottom: 12 }]}>
-              <Text style={s.errorText}>{errorMsg}</Text>
+      {/* ========================================================= */}
+      {/* STEP 1: SELECT QUIZ TYPE (STANDALONE SCREEN)              */}
+      {/* ========================================================= */}
+      {step === 'quiz_type' && (
+        <ScrollView contentContainerStyle={screenStyles.bodyContent}>
+          {/* Step Title & Instruction (File banner removed per user request) */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={screenStyles.stepBadge}>STEP 1 OF 2</Text>
+            <Text style={screenStyles.stepHeading}>Select Quiz Type</Text>
+            <Text style={screenStyles.stepDesc}>
+              Choose the assessment format you want our AI agent to formulate from your lesson.
+            </Text>
+          </View>
+
+          {/* Quiz Type Options List (Badges removed per user request) */}
+          <View style={{ gap: 12 }}>
+            {[
+              {
+                type: 'multiple_choice' as QuizQuestionType,
+                title: 'Multiple Choice',
+                desc: '4 options (A, B, C, D) with instant automated scoring and explanations',
+                icon: 'checkmark.circle.fill' as IconName,
+              },
+              {
+                type: 'identification' as QuizQuestionType,
+                title: 'Identification',
+                desc: 'Recall and type the exact scientific term, definition, or formula',
+                icon: 'pencil' as IconName,
+              },
+              {
+                type: 'essay' as QuizQuestionType,
+                title: 'Essay Type (AI Graded)',
+                desc: 'In-depth conceptual answers scored from 0-10 by Gemini AI agent',
+                icon: 'sparkles' as IconName,
+              },
+            ].map((item) => {
+              const isSelected = quizType === item.type;
+              return (
+                <Pressable
+                  key={item.type}
+                  onPress={() => setQuizType(item.type)}
+                  style={[screenStyles.optionCard, isSelected && screenStyles.optionCardSelected]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    <View style={[screenStyles.optionRadio, isSelected && screenStyles.optionRadioSelected]}>
+                      {isSelected && <View style={screenStyles.optionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Icon name={item.icon} size={16} color={colors.ink} />
+                        <Text style={screenStyles.optionTitle}>{item.title}</Text>
+                      </View>
+                      <Text style={screenStyles.optionDesc}>{item.desc}</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Step Navigation Buttons */}
+          <View style={screenStyles.stepFooter}>
+            <View style={{ flex: 1 }}>
+              <Button title="Back" secondary onPress={() => setStep('source')} />
             </View>
-          ) : null}
+            <View style={{ flex: 1.5 }}>
+              <Button title="Next: Questions" onPress={() => setStep('question_count')} />
+            </View>
+          </View>
+        </ScrollView>
+      )}
 
-          {/* ========================================================= */}
-          {/* STEP 1: SOURCE SELECT (CAMERA OR UPLOAD)                 */}
-          {/* ========================================================= */}
-          {step === 'source' && (
-            <ScrollView contentContainerStyle={modalStyles.bodyContent}>
-              <Text style={modalStyles.subtitle}>
-                Choose how you want to provide your lesson material. The AI will extract key concepts and formulate curriculum questions.
-              </Text>
+      {/* ========================================================= */}
+      {/* STEP 2: NUMBER OF QUESTIONS (STANDALONE SCREEN)           */}
+      {/* ========================================================= */}
+      {step === 'question_count' && (
+        <ScrollView contentContainerStyle={screenStyles.bodyContent}>
+          {/* Step Title & Instruction (Summary banner removed per user request) */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={screenStyles.stepBadge}>STEP 2 OF 2</Text>
+            <Text style={screenStyles.stepHeading}>Number of Questions</Text>
+            <Text style={screenStyles.stepDesc}>
+              Select how many questions the AI agent should formulate for this lesson.
+            </Text>
+          </View>
 
-              <View style={{ gap: 12, marginTop: 14 }}>
-                {/* 1. Camera / Photo Option */}
+          {/* Question Count Cards (Badges removed per user request) */}
+          <View style={{ gap: 12 }}>
+            {[
+              {
+                count: 3,
+                label: '3 Questions',
+                desc: 'Short concept check covering core definitions · ~3 minutes',
+              },
+              {
+                count: 5,
+                label: '5 Questions',
+                desc: 'Balanced assessment with principles, mechanics & practical application · ~6 minutes',
+              },
+              {
+                count: 10,
+                label: '10 Questions',
+                desc: 'In-depth mastery check covering the entire lesson syllabus · ~12 minutes',
+              },
+            ].map((item) => {
+              const isSelected = questionCount === item.count;
+              return (
                 <Pressable
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      cameraInputRef.current?.click();
-                    } else {
-                      Alert.alert('Camera', 'Please choose a photo from your gallery or camera (JPG/PNG).');
-                    }
-                  }}
-                  style={({ pressed }) => [modalStyles.sourceCard, pressed && modalStyles.cardPressed]}
+                  key={item.count}
+                  onPress={() => setQuestionCount(item.count)}
+                  style={[screenStyles.countCard, isSelected && screenStyles.countCardSelected]}
                 >
-                  <Icon name="camera" size={26} color={colors.ink} />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={modalStyles.cardTitle}>Take a Photo / Camera</Text>
-                    <Text style={modalStyles.cardDesc}>
-                      Snap a photo of your physical notebook, textbook, or printed handout.
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    <View style={[screenStyles.optionRadio, isSelected && screenStyles.optionRadioSelected]}>
+                      {isSelected && <View style={screenStyles.optionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={screenStyles.optionTitle}>{item.label}</Text>
+                      <Text style={screenStyles.optionDesc}>{item.desc}</Text>
+                    </View>
                   </View>
                 </Pressable>
+              );
+            })}
+          </View>
 
-                {/* 2. Upload Document Option */}
-                <Pressable
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      docInputRef.current?.click();
-                    } else {
-                      Alert.alert('Document Upload', 'Select a PDF or Word document.');
-                    }
-                  }}
-                  style={({ pressed }) => [modalStyles.sourceCard, pressed && modalStyles.cardPressed]}
-                >
-                  <Icon name="arrow.up.doc" size={26} color={colors.ink} />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={modalStyles.cardTitle}>Upload Document</Text>
-                    <Text style={modalStyles.cardDesc}>
-                      Upload your lesson PDF or Word document directly from your device files.
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
-            </ScrollView>
-          )}
-
-          {/* ========================================================= */}
-          {/* STEP 1: SELECT QUIZ TYPE (STANDALONE SCREEN)              */}
-          {/* ========================================================= */}
-          {step === 'quiz_type' && (
-            <ScrollView contentContainerStyle={modalStyles.bodyContent}>
-              {/* File Info Bar */}
-              <View style={modalStyles.fileBanner}>
-                <Icon name={sourceType === 'camera' ? 'camera' : 'doc.text'} size={20} color={colors.ink} />
-                <View style={{ flex: 1 }}>
-                  <Text style={modalStyles.fileBannerName} numberOfLines={1}>
-                    {fileName}
-                  </Text>
-                  <Text style={modalStyles.fileBannerSub}>
-                    {sourceType === 'camera' ? 'Photo capture' : 'Uploaded document'} · Ready
-                  </Text>
-                </View>
-                <Pressable onPress={() => setStep('source')}>
-                  <Text style={modalStyles.changeFileText}>Change</Text>
-                </Pressable>
-              </View>
-
-              {/* Step Title & Instruction */}
-              <View style={{ marginTop: 16, marginBottom: 12 }}>
-                <Text style={modalStyles.stepBadge}>STEP 1 OF 2</Text>
-                <Text style={modalStyles.stepHeading}>Select Quiz Type</Text>
-                <Text style={modalStyles.stepDesc}>
-                  Choose the assessment format you want our AI agent to formulate from your lesson.
-                </Text>
-              </View>
-
-              {/* Quiz Type Options List */}
-              <View style={{ gap: 10 }}>
-                {[
-                  {
-                    type: 'multiple_choice' as QuizQuestionType,
-                    title: 'Multiple Choice',
-                    desc: '4 options (A, B, C, D) with instant automated scoring and explanations',
-                    icon: 'checkmark.circle.fill' as IconName,
-                    tag: 'Auto-Graded',
-                  },
-                  {
-                    type: 'identification' as QuizQuestionType,
-                    title: 'Identification',
-                    desc: 'Recall and type the exact scientific term, definition, or formula',
-                    icon: 'pencil' as IconName,
-                    tag: 'Recall',
-                  },
-                  {
-                    type: 'essay' as QuizQuestionType,
-                    title: 'Essay Type (AI Graded)',
-                    desc: 'In-depth conceptual answers scored from 0-10 by Gemini AI agent',
-                    icon: 'sparkles' as IconName,
-                    tag: 'AI Rubric',
-                  },
-                ].map((item) => {
-                  const isSelected = quizType === item.type;
-                  return (
-                    <Pressable
-                      key={item.type}
-                      onPress={() => setQuizType(item.type)}
-                      style={[modalStyles.optionCard, isSelected && modalStyles.optionCardSelected]}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <View style={[modalStyles.optionRadio, isSelected && modalStyles.optionRadioSelected]}>
-                          {isSelected && <View style={modalStyles.optionRadioInner} />}
-                        </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Icon name={item.icon} size={16} color={colors.ink} />
-                              <Text style={modalStyles.optionTitle}>
-                                {item.title}
-                              </Text>
-                            </View>
-                            <View style={modalStyles.formatTag}>
-                              <Text style={modalStyles.formatTagText}>{item.tag}</Text>
-                            </View>
-                          </View>
-                          <Text style={modalStyles.optionDesc}>{item.desc}</Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {/* Step Navigation Buttons */}
-              <View style={modalStyles.stepFooter}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Back" secondary onPress={() => setStep('source')} />
-                </View>
-                <View style={{ flex: 1.5 }}>
-                  <Button title="Next: Questions" onPress={() => setStep('question_count')} />
-                </View>
-              </View>
-            </ScrollView>
-          )}
-
-          {/* ========================================================= */}
-          {/* STEP 2: NUMBER OF QUESTIONS (STANDALONE SCREEN)           */}
-          {/* ========================================================= */}
-          {step === 'question_count' && (
-            <ScrollView contentContainerStyle={modalStyles.bodyContent}>
-              {/* Selected Type Summary Banner */}
-              <View style={modalStyles.fileBanner}>
-                <Icon
-                  name={
-                    quizType === 'multiple_choice'
-                      ? 'checkmark.circle.fill'
-                      : quizType === 'identification'
-                      ? 'pencil'
-                      : 'sparkles'
-                  }
-                  size={20}
-                  color={colors.ink}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={modalStyles.fileBannerName}>
-                    {quizType === 'multiple_choice'
-                      ? 'Multiple Choice Quiz'
-                      : quizType === 'identification'
-                      ? 'Identification Quiz'
-                      : 'Essay Type Assessment'}
-                  </Text>
-                  <Text style={modalStyles.fileBannerSub}>
-                    Source: {fileName}
-                  </Text>
-                </View>
-                <Pressable onPress={() => setStep('quiz_type')}>
-                  <Text style={modalStyles.changeFileText}>Change</Text>
-                </Pressable>
-              </View>
-
-              {/* Step Title & Instruction */}
-              <View style={{ marginTop: 16, marginBottom: 12 }}>
-                <Text style={modalStyles.stepBadge}>STEP 2 OF 2</Text>
-                <Text style={modalStyles.stepHeading}>Number of Questions</Text>
-                <Text style={modalStyles.stepDesc}>
-                  Select how many questions the AI agent should formulate for this lesson.
-                </Text>
-              </View>
-
-              {/* Question Count Cards */}
-              <View style={{ gap: 10 }}>
-                {[
-                  {
-                    count: 3,
-                    label: '3 Questions',
-                    badge: 'Quick Check',
-                    desc: 'Short concept check covering core definitions · ~3 minutes',
-                  },
-                  {
-                    count: 5,
-                    label: '5 Questions',
-                    badge: 'Recommended',
-                    desc: 'Balanced assessment with principles, mechanics & practical application · ~6 minutes',
-                  },
-                  {
-                    count: 10,
-                    label: '10 Questions',
-                    badge: 'Comprehensive',
-                    desc: 'In-depth mastery check covering the entire lesson syllabus · ~12 minutes',
-                  },
-                ].map((item) => {
-                  const isSelected = questionCount === item.count;
-                  return (
-                    <Pressable
-                      key={item.count}
-                      onPress={() => setQuestionCount(item.count)}
-                      style={[modalStyles.countCard, isSelected && modalStyles.countCardSelected]}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <View style={[modalStyles.optionRadio, isSelected && modalStyles.optionRadioSelected]}>
-                          {isSelected && <View style={modalStyles.optionRadioInner} />}
-                        </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={modalStyles.optionTitle}>{item.label}</Text>
-                            <View style={modalStyles.formatTag}>
-                              <Text style={modalStyles.formatTagText}>{item.badge}</Text>
-                            </View>
-                          </View>
-                          <Text style={modalStyles.optionDesc}>{item.desc}</Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {/* Step Navigation Buttons */}
-              <View style={modalStyles.stepFooter}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Back" secondary onPress={() => setStep('quiz_type')} />
-                </View>
-                <View style={{ flex: 1.5 }}>
-                  <Button title="Generate Quiz with AI" onPress={handleGenerate} />
-                </View>
-              </View>
-            </ScrollView>
-          )}
+          {/* Step Navigation Buttons */}
+          <View style={screenStyles.stepFooter}>
+            <View style={{ flex: 1 }}>
+              <Button title="Back" secondary onPress={() => setStep('quiz_type')} />
+            </View>
+            <View style={{ flex: 1.5 }}>
+              <Button title="Generate Quiz with AI" onPress={handleGenerate} />
+            </View>
+          </View>
+        </ScrollView>
+      )}
 
           {/* ========================================================= */}
           {/* STEP 3: AGENT THINKING (STANDALONE LOADING SCREEN)        */}
@@ -1173,10 +1109,13 @@ Return strictly a valid JSON object matching this schema without markdown fences
               </View>
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </SafeAreaView>
   );
+}
+
+export function QuizGeneratorModal({ visible, onClose }: QuizGeneratorModalProps) {
+  if (!visible) return null;
+  return <QuizGeneratorScreen onBack={onClose} />;
 }
 
 // Helpers
@@ -1373,44 +1312,10 @@ function getFallbackEssayEvaluation(q: QuizQuestion, studentAns: string): EssayE
   };
 }
 
-const modalStyles = StyleSheet.create({
-  overlay: {
+const screenStyles = StyleSheet.create({
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sheetContainer: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '92%',
-    minHeight: 460,
-    width: '100%',
-    maxWidth: 620,
-    alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 20,
-    overflow: 'hidden',
-  },
-  dragPillWrap: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  dragPill: {
-    width: 36,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#E5E5EA',
   },
   header: {
     flexDirection: 'row',
@@ -1420,6 +1325,15 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F2F2F7',
+    backgroundColor: '#FFFFFF',
+  },
+  headerBackBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 18,
@@ -1428,9 +1342,9 @@ const modalStyles = StyleSheet.create({
     color: colors.ink,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1717,14 +1631,6 @@ const modalStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5EA',
   },
-  headerBackBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   stepBadge: {
     fontSize: 11,
     fontWeight: '700',
@@ -1850,3 +1756,6 @@ const modalStyles = StyleSheet.create({
     marginVertical: 4,
   },
 });
+
+const modalStyles = screenStyles;
+
