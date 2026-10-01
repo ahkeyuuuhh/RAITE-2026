@@ -2,7 +2,9 @@ const { toQR } = require('toqr');
 const fs = require('fs');
 const path = require('path');
 
-const url = 'exp://192.168.1.211:8082';
+const url = process.argv[2] || process.env.EXPO_URL || (process.env.EXPO_PUBLIC_API_URL
+  ? process.env.EXPO_PUBLIC_API_URL.replace(/^http:\/\//, 'exp://').replace(/:[0-9]+$/, ':8081')
+  : 'exp://192.168.1.216:8081');
 const data = toQR(url);
 const extent = Math.sqrt(data.length) | 0;
 const quiet = 4;
@@ -116,7 +118,7 @@ const html = `<!DOCTYPE html>
       ${svg}
     </div>
     <div class="url">
-      exp://192.168.1.211:8082
+      ${url}
     </div>
     <div class="accounts">
       <h3>Quick Demo Accounts</h3>

@@ -104,6 +104,137 @@ app.post(
     return await geminiChat(parsed.message, parsed.history);
   }),
 );
+app.post(
+  '/api/auth/login',
+  route(async (req) => {
+    const body = z
+      .object({
+        email: z.string().trim().email('Enter a valid email address.'),
+        password: z.string().min(1, 'Password is required.'),
+      })
+      .parse(req.body);
+
+    const account = await one(
+      pool,
+      `select id,email,demo_password,first_name,last_name,name,role,school_id,school_name,
+              student_id,course,year_level,faculty_id,department,created_at,updated_at
+       from classassist.accounts where lower(email) = lower($1)`,
+      [body.email],
+    );
+
+    // Demo credentials are intentionally limited to the hackathon flow.
+    if (!account || account.demo_password !== body.password) {
+      fail('INVALID_CREDENTIALS', 'Incorrect email or password.', 401);
+    }
+
+    const { demo_password: _demoPassword, ...publicAccount } = account;
+    let profile = await one(pool, 'select * from classassist.profiles where id = $1', [
+      account.id,
+    ]);
+
+    if (!profile) {
+      profile = await one(
+        pool,
+        `insert into classassist.profiles
+          (id,school_id,name,role,email,first_name,last_name,student_number,employee_number)
+         values ($1,$2,$3,$4,$5,$6,$7,nullif($8,''),nullif($9,'')) returning *`,
+        [account.id, account.school_id, account.name, account.role, account.email, account.first_name, account.last_name, account.student_id, account.faculty_id],
+      );
+    }
+
+    return {
+      ok: true,
+      token: account.id,
+      account: publicAccount,
+      profile,
+    };
+  }),
+);
+app.post(
+  '/api/auth/register',
+  route(async (req) => {
+    const body = z
+      .object({
+        email: z.string().trim().email('Enter a valid email address.'),
+        password: z.string().min(6, 'Password must be at least 6 characters.'),
+        firstName: z.string().trim().min(1, 'First name is required.'),
+        lastName: z.string().trim().min(1, 'Last name is required.'),
+        role: z.enum(['teacher', 'student']),
+        school: z.string().trim().optional().default('University of the Philippines Diliman'),
+        studentId: z.string().trim().optional().default(''),
+        course: z.string().trim().optional().default(''),
+        yearLevel: z.string().trim().optional().default(''),
+        facultyId: z.string().trim().optional().default(''),
+        department: z.string().trim().optional().default(''),
+      })
+      .parse(req.body);
+
+    const existing = await one(
+      pool,
+      'select id from classassist.accounts where lower(email) = lower($1)',
+      [body.email],
+    );
+    if (existing) {
+      fail('EMAIL_EXISTS', 'An account with this email already exists.', 409);
+    }
+
+    const schoolId = '00000000-0000-4000-8000-000000000001';
+    const fullName = `${body.firstName} ${body.lastName}`.trim();
+
+    return await transaction(async (db) => {
+      const account = await one(
+        db,
+        `insert into classassist.accounts (
+          email, demo_password, first_name, last_name, name, role, school_id, school_name,
+          student_id, course, year_level, faculty_id, department
+        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        returning id,email,first_name,last_name,name,role,school_id,school_name,
+                  student_id,course,year_level,faculty_id,department,created_at,updated_at`,
+        [
+          body.email.toLowerCase(),
+          body.password,
+          body.firstName,
+          body.lastName,
+          fullName,
+          body.role,
+          schoolId,
+          body.school,
+          body.studentId,
+          body.course,
+          body.yearLevel,
+          body.facultyId,
+          body.department,
+        ],
+      );
+
+      const profile = await one(
+        db,
+        `insert into classassist.profiles
+          (id,school_id,name,role,email,first_name,last_name,student_number,employee_number)
+         values ($1,$2,$3,$4,$5,$6,$7,nullif($8,''),nullif($9,''))
+         on conflict (id) do update set name=excluded.name, role=excluded.role,
+           email=excluded.email,first_name=excluded.first_name,last_name=excluded.last_name,
+           student_number=excluded.student_number,employee_number=excluded.employee_number,updated_at=now()
+         returning *`,
+        [account.id, schoolId, fullName, body.role, body.email.toLowerCase(), body.firstName, body.lastName, body.studentId, body.facultyId],
+      );
+
+      if (body.role === 'teacher') {
+        await db.query(
+          'insert into classassist.availability(teacher_id, rules) values ($1, $2) on conflict do nothing',
+          [account.id, defaults],
+        );
+      }
+
+      return {
+        ok: true,
+        token: account.id,
+        account,
+        profile,
+      };
+    });
+  }),
+);
 app.use('/api', authenticate);
 app.get(
   '/api/me',
@@ -115,7 +246,7 @@ app.get(
     async (req) =>
       (
         await pool.query(
-          `select c.id,c.name,c.subject,c.description,c.teacher_id,c.code_expires_at,p.name as teacher_name,
+          `select c.id,c.name,c.subject,c.subject_code,c.section,c.status,c.description,c.teacher_id,c.code_expires_at,p.name as teacher_name,
   (select count(*)::int from classassist.memberships where class_id=c.id and active) as member_count
   from classassist.classes c join classassist.profiles p on p.id=c.teacher_id where c.school_id=$1 and
   (c.teacher_id=$2 or exists(select 1 from classassist.memberships m where m.class_id=c.id and m.student_id=$2 and m.active)) order by c.created_at`,
@@ -123,6 +254,20 @@ app.get(
         )
       ).rows,
   ),
+);
+app.get(
+  '/api/classes/:id',
+  route(async (req) => {
+    const classId = id(req);
+    await classAccess(pool, req.user, classId);
+    return one(
+      pool,
+      `select c.id,c.school_id,c.teacher_id,c.name,c.subject,c.subject_code,c.section,c.description,c.status,c.created_at,c.updated_at,p.name as teacher_name,
+       (select count(*)::int from classassist.memberships m where m.class_id=c.id and m.active) as member_count
+       from classassist.classes c join classassist.profiles p on p.id=c.teacher_id where c.id=$1`,
+      [classId],
+    );
+  }),
 );
 app.post(
   '/api/classes',
@@ -132,14 +277,18 @@ app.post(
       .object({
         name: z.string().trim().min(2).max(100),
         subject: z.string().trim().min(2).max(100),
+        subject_code: z.string().trim().max(40).optional(),
+        section: z.string().trim().max(80).optional(),
         description: z.string().max(500).default(''),
       })
       .parse(req.body);
     const code = randomBytes(6).toString('hex').toUpperCase();
     const row = await one(
       pool,
-      `insert into classassist.classes(school_id,teacher_id,name,subject,description,code_hash,code_expires_at) values($1,$2,$3,$4,$5,$6,now()+interval '7 days') returning id,name,subject,description,code_expires_at`,
-      [req.user.school_id, req.user.id, data.name, data.subject, data.description, digest(code)],
+      `insert into classassist.classes(school_id,teacher_id,name,subject,subject_code,section,description,code_hash,code_expires_at)
+       values($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '7 days')
+       returning id,name,subject,subject_code,section,description,status,code_expires_at,created_at,updated_at`,
+      [req.user.school_id, req.user.id, data.name, data.subject, data.subject_code || null, data.section || null, data.description, digest(code)],
     );
     return { ...row, code };
   }),
@@ -211,7 +360,7 @@ app.get(
     await classAccess(pool, req.user, classId, true);
     return (
       await pool.query(
-        'select p.id,p.name,m.joined_at from classassist.memberships m join classassist.profiles p on p.id=m.student_id where class_id=$1 and active order by p.name',
+        'select p.id,p.name,p.first_name,p.last_name,p.student_number,m.joined_at from classassist.memberships m join classassist.profiles p on p.id=m.student_id where class_id=$1 and active order by p.name',
         [classId],
       )
     ).rows;

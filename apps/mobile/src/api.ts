@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { randomUUID } from 'expo-crypto';
 import Constants from 'expo-constants';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Config } from './types';
+import type { Config, Profile } from './types';
 
 function resolveApiUrl(): string {
   if (Platform.OS === 'web') {
@@ -37,6 +37,39 @@ function resolveApiUrl(): string {
 
 export const API_URL = resolveApiUrl();
 let auth: SupabaseClient;
+let inMemoryToken: string | null = null;
+
+export async function setAuthToken(token: string | null) {
+  inMemoryToken = token;
+  try {
+    if (token) {
+      await secureStorage.setItem('classassist_auth_token', token);
+    } else {
+      await secureStorage.removeItem('classassist_auth_token');
+    }
+  } catch {
+    // Ignored in restricted environments
+  }
+}
+
+export async function getAuthToken(): Promise<string | null> {
+  if (inMemoryToken) return inMemoryToken;
+  try {
+    const stored = await secureStorage.getItem('classassist_auth_token');
+    if (stored) {
+      inMemoryToken = stored;
+      return stored;
+    }
+  } catch {
+    // Ignored
+  }
+  try {
+    return (await auth?.auth.getSession())?.data.session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 // Split session JSON into small encrypted entries for native keychain size limits.
 const secureStorage = {
   async getItem(key: string) {
@@ -96,27 +129,38 @@ const secureStorage = {
     }
   },
 };
+
 export async function connect() {
-  const config = await request<Config>('/config', undefined, false);
-  if (!config.supabaseUrl || !config.supabaseKey)
-    throw new Error('Supabase is not configured on the server yet.');
-  if (!auth) {
-    const url = new URL(config.supabaseUrl);
-    if (['localhost', '127.0.0.1'].includes(url.hostname)) url.hostname = new URL(API_URL).hostname;
-    auth = createClient(url.toString(), config.supabaseKey, {
-      auth: {
-        storage: secureStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    });
-    AppState.addEventListener('change', (state) =>
-      state === 'active' ? auth.auth.startAutoRefresh() : auth.auth.stopAutoRefresh(),
-    );
+  const config = await request<Config>('/config', undefined, false).catch(() => ({
+    supabaseUrl: '',
+    supabaseKey: '',
+    aiConfigured: true,
+    sampleEnabled: true,
+    timezone: 'Asia/Manila',
+  }));
+  if (config.supabaseUrl && config.supabaseKey && !auth) {
+    try {
+      const url = new URL(config.supabaseUrl);
+      if (['localhost', '127.0.0.1'].includes(url.hostname)) url.hostname = new URL(API_URL).hostname;
+      auth = createClient(url.toString(), config.supabaseKey, {
+        auth: {
+          storage: secureStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      });
+      AppState.addEventListener('change', (state) =>
+        state === 'active' ? auth.auth.startAutoRefresh() : auth.auth.stopAutoRefresh(),
+      );
+    } catch {
+      // Ignored
+    }
   }
-  return { config, auth };
+  const token = await getAuthToken();
+  return { config, auth, token };
 }
+
 export async function request<T>(
   path: string,
   body?: unknown,
@@ -126,9 +170,7 @@ export async function request<T>(
   const controller = new AbortController(),
     timer = setTimeout(() => controller.abort(), 40000);
   try {
-    const token = authenticated
-      ? (await auth?.auth.getSession())?.data.session?.access_token
-      : undefined;
+    const token = authenticated ? await getAuthToken() : undefined;
     if (authenticated && !token) throw new Error('Please sign in again.');
     const response = await fetch(`${API_URL}/api${path}`, {
       method: method || (body === undefined ? 'GET' : 'POST'),
@@ -144,11 +186,46 @@ export async function request<T>(
     return result;
   } catch (e) {
     if (e instanceof Error && (e.name === 'AbortError' || e.message === 'Network request failed'))
-      throw new Error('Cannot reach ClassAssist. Check your connection and try again.');
+      throw new Error('Cannot reach Aider. Check your connection and try again.');
     throw e;
   } finally {
     clearTimeout(timer);
   }
+}
+
+export type AuthResponse = {
+  ok: boolean;
+  token: string;
+  account: any;
+  profile: Profile;
+};
+
+export async function loginAccount(body: { email: string; password: string }): Promise<AuthResponse> {
+  const res = await request<AuthResponse>('/auth/login', body, false, 'POST');
+  if (res.token) {
+    await setAuthToken(res.token);
+  }
+  return res;
+}
+
+export async function registerAccount(body: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: 'teacher' | 'student';
+  school?: string;
+  studentId?: string;
+  course?: string;
+  yearLevel?: string;
+  facultyId?: string;
+  department?: string;
+}): Promise<AuthResponse> {
+  const res = await request<AuthResponse>('/auth/register', body, false, 'POST');
+  if (res.token) {
+    await setAuthToken(res.token);
+  }
+  return res;
 }
 export const authClient = () => auth;
 export const dateText = (value: string) =>
