@@ -1001,12 +1001,16 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
     mimeType: string;
     name?: string;
   } | null>(null);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
-  const handlePickImage = () => {
+  const handlePickImage = (useCamera = false) => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const inputEl = document.createElement('input');
       inputEl.type = 'file';
       inputEl.accept = 'image/*';
+      if (useCamera) {
+        inputEl.capture = 'environment';
+      }
       inputEl.onchange = (e: any) => {
         const file = e.target?.files?.[0];
         if (!file) return;
@@ -1023,7 +1027,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
             previewUrl: res,
             data: base64,
             mimeType,
-            name: file.name,
+            name: file.name || (useCamera ? 'Camera Photo.jpg' : 'Lesson Sheet.jpg'),
           });
         };
         reader.readAsDataURL(file);
@@ -1186,6 +1190,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
 
     setInput('');
     setSelectedImage(null);
+    setShowAttachMenu(false);
     setShowPromptsSheet(false);
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1704,6 +1709,116 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
           </View>
         )}
 
+        {/* Dark Floating Popup Menu (Upload Image & Use Camera) - Matching Image 2 Aesthetic */}
+        {showAttachMenu && (
+          <View style={{ position: 'relative', zIndex: 999 }}>
+            {/* Transparent backdrop to dismiss when clicking outside */}
+            <Pressable
+              onPress={() => setShowAttachMenu(false)}
+              style={({
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 990,
+              } as any)}
+            />
+
+            {/* Floating Dark Popup Menu Card */}
+            <View
+              style={[
+                {
+                  position: 'absolute',
+                  bottom: 12,
+                  left: 4,
+                  zIndex: 1000,
+                  width: 240,
+                  backgroundColor: '#1E2025',
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                  padding: 6,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 24,
+                  elevation: 12,
+                  gap: 2,
+                },
+                Platform.OS === 'web'
+                  ? ({
+                      backdropFilter: 'blur(28px)',
+                      WebkitBackdropFilter: 'blur(28px)',
+                      boxShadow: '0 16px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.10)',
+                      animation: 'fadeInUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                    } as any)
+                  : null,
+              ]}
+            >
+              {/* Option 1: Upload Image */}
+              <Pressable
+                onPress={() => {
+                  setShowAttachMenu(false);
+                  handlePickImage(false);
+                }}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 12,
+                    backgroundColor: pressed ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                  } as any,
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Icon name="arrow.up.doc" size={17} color="#FFFFFF" />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 }}>
+                    Upload Image
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '500', color: '#9CA3AF' }}>
+                  Gallery
+                </Text>
+              </Pressable>
+
+              {/* Option 2: Use Camera */}
+              <Pressable
+                onPress={() => {
+                  setShowAttachMenu(false);
+                  handlePickImage(true);
+                }}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 12,
+                    backgroundColor: pressed ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                  } as any,
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Icon name="camera" size={17} color="#FFFFFF" />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 }}>
+                    Use Camera
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '500', color: '#9CA3AF' }}>
+                  Take Photo
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         {/* 3. FLOATING GLASSMORPHIC CAPSULE INPUT DOCK WITH MOVING RAINBOW BORDER */}
         <Animated.View
           style={[
@@ -1768,10 +1883,10 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 backgroundColor: 'transparent',
               }}
             >
-              {/* 1. FAR LEFT: Upload Lesson Photo / Camera Button */}
+              {/* 1. FAR LEFT: Plus Button (Toggles Upload Image & Use Camera Menu) */}
               <Pressable
-                onPress={handlePickImage}
-                accessibilityLabel="Upload Lesson Photo or Document"
+                onPress={() => setShowAttachMenu((prev) => !prev)}
+                accessibilityLabel="Attach Lesson Photo or Camera"
                 style={({ pressed }) => [
                   {
                     width: 36,
@@ -1779,16 +1894,27 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                     borderRadius: 18,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: selectedImage ? '#EEF2FF' : 'transparent',
+                    backgroundColor: showAttachMenu || selectedImage ? '#EEF2FF' : 'transparent',
                   },
-                  pressed && { opacity: 0.6 },
+                  pressed && { opacity: 0.7 },
                 ]}
               >
-                <Icon
-                  name="camera"
-                  size={21}
-                  color={selectedImage ? '#4F46E5' : '#8E8E93'}
-                />
+                <Animated.View
+                  style={[
+                    Platform.OS === 'web'
+                      ? ({
+                          transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                        } as any)
+                      : null,
+                  ]}
+                >
+                  <Icon
+                    name="plus"
+                    size={21}
+                    color={showAttachMenu || selectedImage ? '#4F46E5' : '#8E8E93'}
+                  />
+                </Animated.View>
               </Pressable>
 
               {/* Wave Frequency Visualizer on the Typing Bar */}

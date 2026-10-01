@@ -123,6 +123,7 @@ const paths: Record<IconName, string> = {
 // iOS uses genuine system SF Symbols. Android uses small original vector fallbacks
 // following the same monochrome visual language (no Lucide/Material font dependency).
 const sfSymbolMap: Partial<Record<IconName, any>> = {
+  plus: 'plus',
   camera: 'camera',
   'arrow.up.doc': 'arrow.up.doc',
   'line.2.horizontal': 'line.3.horizontal',
