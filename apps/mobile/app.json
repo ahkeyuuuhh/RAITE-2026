@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "ClassAssist",
+    "slug": "classassist",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "classassist",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.raite.classassist"
+    },
+    "android": {
+      "package": "com.raite.classassist"
+    },
+    "plugins": ["expo-secure-store", "expo-status-bar"],
+    "extra": {
+      "description": "Room for learning. Teacher and student mobile companion."
+    }
+  }
+}

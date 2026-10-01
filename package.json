@@ -1,0 +1,38 @@
+{
+  "name": "classassist",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/mobile",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,worker \"npm run dev -w apps/api\" \"npm run worker -w apps/api\"",
+    "mobile": "npm run start -w apps/mobile",
+    "android": "npm run android -w apps/mobile",
+    "build": "npm run typecheck -w apps/mobile && npm run export -w apps/mobile",
+    "test": "npm run test -w apps/api",
+    "test:integration": "npm run test:integration -w apps/api",
+    "db:migrate": "node --env-file-if-exists=.env apps/api/scripts/migrate.js",
+    "db:seed": "node --env-file-if-exists=.env apps/api/scripts/seed.js",
+    "worker": "npm run worker -w apps/api"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "@types/react": "19.2.4",
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
+  "devDependencies": {
+    "@types/react": "19.2.4",
+    "concurrently": "10.0.5",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3"
+  }
+}

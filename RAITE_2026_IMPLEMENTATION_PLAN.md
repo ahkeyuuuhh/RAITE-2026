@@ -2,8 +2,10 @@
 
 **Working title:** ClassAssist — Agentic Consultation and Classroom Manager  
 **Prepared:** October 1, 2026  
-**Status:** Proposed implementation; no application has been built or tested by this document.  
+**Status:** Original proposal with implementation underway; see `docs/ARCHITECTURE.md` and `docs/TEST_RESULTS.md` for actual scope and verification.  
 **Suggested repository location:** `docs/RAITE_2026_IMPLEMENTATION_PLAN.md`
+
+**User-directed platform update (October 1, 2026):** Build a native mobile app, not a web app. The implemented stack is React Native + TypeScript through Expo for Android/iOS, Node.js + Express for the API and worker, and Supabase Auth/PostgreSQL. Web-specific layout and browser assumptions below are historical proposal material. The native app uses phone navigation, native inputs, safe areas, secure session storage, and iOS SF Symbols with original Android vector fallbacks. The competition document does not authorize unrelated external actions.
 
 ## 1. Product direction
 
