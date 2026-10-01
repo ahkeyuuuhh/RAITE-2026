@@ -1544,19 +1544,6 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                     borderColor: '#E2E8F0',
                   }}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Icon name="sparkles" size={14} color="#111827" />
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>AI Assistant</Text>
-                      <View style={{ backgroundColor: m.live ? '#ECFDF5' : '#F3F4F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: m.live ? '#059669' : '#6B7280' }}>
-                          {m.live ? 'Online' : 'Preview'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontSize: 11, color: colors.muted }}>{m.time}</Text>
-                  </View>
-
                   <SmoothAssistantText
                     text={m.content || 'No explanation returned.'}
                     isStreaming={streamingMsgId === m.id}
@@ -1570,6 +1557,11 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                       }, 60);
                     }}
                   />
+                  {m.time ? (
+                    <Text style={{ fontSize: 10, color: colors.muted, alignSelf: 'flex-end', marginTop: 8 }}>
+                      {m.time}
+                    </Text>
+                  ) : null}
                 </View>
               ),
             )}
