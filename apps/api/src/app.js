@@ -31,9 +31,14 @@ import {
 import { aiReady, parseIntent, geminiChat } from './ai.js';
 import { sampleLesson } from './fixtures.js';
 export const app = express();
-app.disable('x-powered-by');
-app.use(helmet());
-app.use(cors({ origin: process.env.WEB_ORIGIN || false }));
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(
+  cors({
+    origin: process.env.WEB_ORIGIN
+      ? (process.env.WEB_ORIGIN === '*' ? true : process.env.WEB_ORIGIN.split(',').map((s) => s.trim()))
+      : true,
+  }),
+);
 app.use(express.json({ limit: '96kb' }));
 app.use(
   '/api',

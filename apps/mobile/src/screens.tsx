@@ -10,12 +10,16 @@ import {
   Platform,
   Keyboard,
   KeyboardAvoidingView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { randomUUID } from 'expo-crypto';
 import { request, dateText, localDate, localDateTime, toISO } from './api';
 import { GEMINI_API_KEY } from './gemini-key';
 import { useApp, useRemote } from './context';
+import { QuizGeneratorModal } from './quiz-generator-modal';
+import { BlurView } from 'expo-blur';
 import {
   Body,
   Button,
@@ -28,7 +32,13 @@ import {
   Pill,
   Ring,
   Row,
+  MetricCard,
+  FeatureCard,
+  ProgressRing,
+  BarChartWidget,
+  SparklineWidget,
   colors,
+  fontStack,
   s,
   GeminiStar,
 } from './ui';
@@ -105,56 +115,72 @@ export function TeacherHomeScreen() {
 
       {/* 4 Metric Widgets in Squircle Grid */}
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="person.2.fill" size={20} color={colors.green} />
-            <Pill tone="green">Teaching</Pill>
-          </View>
-          <Text style={[s.number, { fontSize: 30, marginTop: 8 }]}>{activeClassrooms.length}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Classes Active</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Sections enrolled</Text>
-        </Card>
+        <MetricCard
+          icon="person.2.fill"
+          title="Classes"
+          value={activeClassrooms.length}
+          unit="active"
+          widget={
+            <BarChartWidget
+              width={36}
+              maxHeight={26}
+              heights={[10, 16, 26, 18, 12]}
+              activeIndex={2}
+            />
+          }
+          onPress={() => open('classes')}
+        />
 
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="doc.text" size={20} color={drafts.length > 0 ? '#D97706' : colors.muted} />
-            <Pill tone={drafts.length > 0 ? 'gray' : 'green'}>
-              {drafts.length > 0 ? 'Pending' : 'Ready'}
-            </Pill>
-          </View>
-          <Text
-            style={[
-              s.number,
-              { fontSize: 30, marginTop: 8, color: drafts.length > 0 ? '#D97706' : colors.ink },
-            ]}
-          >
-            {drafts.length}
-          </Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Drafts to Review</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Needs approval</Text>
-        </Card>
+        <MetricCard
+          icon="doc.text"
+          title="Drafts"
+          value={drafts.length}
+          unit={drafts.length > 0 ? 'pending' : 'ready'}
+          accentColor={drafts.length > 0 ? '#D97706' : undefined}
+          widget={
+            <ProgressRing
+              size={38}
+              pct={drafts.length > 0 ? 0.75 : 0.15}
+              strokeWidth={4.2}
+              color={drafts.length > 0 ? '#D97706' : colors.ink}
+              trackColor="#E5E5EA"
+            />
+          }
+          onPress={() => open('assistant')}
+        />
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="clock" size={20} color={colors.blue} />
-            <Pill tone="blue">Scheduled</Pill>
-          </View>
-          <Text style={[s.number, { fontSize: 30, marginTop: 8 }]}>{upcoming.length}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Consultations</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Student bookings</Text>
-        </Card>
+        <MetricCard
+          icon="clock"
+          title="Sessions"
+          value={upcoming.length}
+          unit="scheduled"
+          widget={
+            <ProgressRing
+              size={38}
+              pct={upcoming.length > 0 ? 0.6 : 0.1}
+              strokeWidth={4.2}
+              color={colors.ink}
+              trackColor="#E5E5EA"
+            />
+          }
+          onPress={() => open('calendar')}
+        />
 
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="checkmark.circle.fill" size={20} color={colors.green} />
-            <Pill tone="green">Published</Pill>
-          </View>
-          <Text style={[s.number, { fontSize: 30, marginTop: 8 }]}>{published.length}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Live Quizzes</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Class assessments</Text>
-        </Card>
+        <MetricCard
+          icon="checkmark.circle.fill"
+          title="Live Tests"
+          value={published.length}
+          unit="published"
+          widget={
+            <SparklineWidget
+              width={42}
+              height={22}
+              color={colors.ink}
+            />
+          }
+        />
       </View>
 
       {/* Assessment Drafts Pending Review */}
@@ -242,8 +268,9 @@ export function TeacherHomeScreen() {
 }
 
 export function StudentHomeScreen() {
-  const { profile, open } = useApp();
-  const { data: bookings, error: bookingsError } = useRemote<Booking[]>('/consultations');
+  const { open } = useApp();
+  const [showQuizGenerator, setShowQuizGenerator] = useState(false);
+  const { data: bookings } = useRemote<Booking[]>('/consultations');
   const { data: assessments } = useRemote<Assessment[]>('/assessments');
   const { data: classes } = useRemote<Classroom[]>('/classes');
 
@@ -255,148 +282,107 @@ export function StudentHomeScreen() {
 
   return (
     <View style={s.stack}>
-      {/* Student Hero Banner */}
-      <Card style={{ backgroundColor: '#EBF3FE', padding: 22, borderColor: '#D0E2FF', borderWidth: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Pill tone="blue">Student Scholar Portal</Pill>
-          <Icon name="graduationcap.fill" color={colors.blue} size={24} />
-        </View>
-        <Text style={{ fontSize: 26, fontWeight: '700', letterSpacing: -0.6, color: '#0A2540', lineHeight: 32 }}>
-          Hello, {profile.name} 👋
-        </Text>
-        <Body style={{ marginTop: 6, color: '#1E3A8A' }}>
-          Grade 10 · Newton Section. Check your open assignments, ask lesson questions, and book faculty consultations.
-        </Body>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Book Consultation"
-              onPress={() => open('book')}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Notifications"
-              secondary
-              onPress={() => open('notifications')}
-            />
-          </View>
-        </View>
-      </Card>
-
       {/* 4 Metric Widgets in Squircle Grid */}
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="doc.text" size={20} color={openAssessments.length > 0 ? colors.blue : colors.muted} />
-            <Pill tone={openAssessments.length > 0 ? 'blue' : 'gray'}>
-              {openAssessments.length > 0 ? 'Due' : 'None'}
-            </Pill>
-          </View>
-          <Text
-            style={[
-              s.number,
-              { fontSize: 30, marginTop: 8, color: openAssessments.length > 0 ? colors.blue : colors.ink },
-            ]}
-          >
-            {openAssessments.length}
-          </Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Open Quizzes</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Ready to take</Text>
-        </Card>
+        <MetricCard
+          icon="doc.text"
+          title="Quizzes"
+          value={openAssessments.length}
+          unit="active"
+          widget={
+            <ProgressRing
+              size={38}
+              pct={openAssessments.length > 0 ? 0.75 : 0.15}
+              strokeWidth={4.2}
+              color={colors.ink}
+              trackColor="#E5E5EA"
+            />
+          }
+        />
 
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="calendar" size={20} color={colors.green} />
-            <Pill tone="green">Upcoming</Pill>
-          </View>
-          <Text style={[s.number, { fontSize: 30, marginTop: 8 }]}>{upcoming.length}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Consultations</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>With teachers</Text>
-        </Card>
+        <MetricCard
+          icon="calendar"
+          title="Sessions"
+          value={upcoming.length}
+          unit="booked"
+          widget={
+            <ProgressRing
+              size={38}
+              pct={upcoming.length > 0 ? 0.6 : 0.1}
+              strokeWidth={4.2}
+              color={colors.ink}
+              trackColor="#E5E5EA"
+            />
+          }
+          onPress={() => open('calendar')}
+        />
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="person.2.fill" size={20} color={colors.ink} />
-            <Pill tone="gray">Enrolled</Pill>
-          </View>
-          <Text style={[s.number, { fontSize: 30, marginTop: 8 }]}>{activeClassrooms.length}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>My Classes</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Classrooms</Text>
-        </Card>
-
-        <Card style={{ flex: 1, padding: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Icon name="sparkles" size={20} color="#7C3AED" />
-            <Pill tone="gray">AI Tutor</Pill>
-          </View>
-          <Text style={[s.number, { fontSize: 30, marginTop: 8, color: '#7C3AED' }]}>24/7</Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Study Assistant</Text>
-          <Text style={{ fontSize: 11, color: colors.muted }}>Always available</Text>
-        </Card>
-      </View>
-
-      {/* Active Quizzes Available to Take */}
-      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
-        <Heading>Active Quizzes & Assessments</Heading>
-        {openAssessments.length > 0 && <Pill tone="blue">{openAssessments.length} Active</Pill>}
-      </View>
-      {!openAssessments.length ? (
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Icon name="checkmark.circle.fill" size={24} color={colors.green} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.ink }}>All Caught Up!</Text>
-              <Text style={{ fontSize: 12, color: colors.muted }}>
-                You have completed all assigned assessments for now.
-              </Text>
-            </View>
-          </View>
-        </Card>
-      ) : (
-        openAssessments.slice(0, 3).map((a) => (
-          <Card key={a.id}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Pill tone="blue">{a.class_name || 'Science Assessment'}</Pill>
-              <Text style={{ fontSize: 11, color: colors.muted }}>{a.duration_minutes || 20} mins</Text>
-            </View>
-            <Heading style={{ marginTop: 6 }}>{a.title}</Heading>
-            <Body numberOfLines={2}>
-              {a.announcement || 'Answer all questions independently.'}
-            </Body>
-            <View style={{ marginTop: 8 }}>
-              <Button title="Start Quiz Now" onPress={() => open('quiz', a.id)} />
-            </View>
-          </Card>
-        ))
-      )}
-
-      {/* Booked Consultations */}
-      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
-        <Heading>My Teacher Consultations</Heading>
-        <Text style={s.caption}>Schedule</Text>
-      </View>
-      <RemoteState error={bookingsError || ''} loading={!bookings && !bookingsError} />
-      {!upcoming.length ? (
-        <Empty
-          title="No scheduled consultations"
-          body="Need help with a topic? Book a 1-on-1 consultation slot with your teacher."
-        />
-      ) : (
-        <Card>
-          {upcoming.slice(0, 3).map((b) => (
-            <Row
-              key={b.id}
-              title={b.teacher_name}
-              detail={`${dateText(b.starts_at)} · ${b.location}`}
-              icon="calendar"
-              onPress={() => open('book')}
+        <MetricCard
+          icon="person.2.fill"
+          title="Classes"
+          value={activeClassrooms.length}
+          unit="enrolled"
+          widget={
+            <BarChartWidget
+              width={36}
+              maxHeight={26}
+              heights={[10, 16, 26, 18, 12]}
+              activeIndex={2}
             />
-          ))}
-        </Card>
-      )}
+          }
+        />
+
+        <MetricCard
+          icon="sparkles"
+          title="AI Tutor"
+          value="24/7"
+          unit="online"
+          widget={
+            <SparklineWidget
+              width={42}
+              height={22}
+              color={colors.ink}
+            />
+          }
+          onPress={() => open('agent')}
+        />
+      </View>
+
+      {/* Feature Section: 3-column 1-row Card Layout */}
+      <View style={{ marginTop: 14, marginBottom: 4 }}>
+        <Heading style={{ fontSize: 18 }}>Feature Section</Heading>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {/* Card 1: Quiz Generator */}
+        <FeatureCard
+          icon="sparkles"
+          title="Quiz Gen"
+          subtitle="AI generator"
+          onPress={() => setShowQuizGenerator(true)}
+        />
+
+        {/* Card 2: Flashcards (Coming Soon) */}
+        <FeatureCard
+          icon="doc.on.doc"
+          title="Cards"
+          subtitle="Smart review"
+        />
+
+        {/* Card 3: Summarizer (Coming Soon) */}
+        <FeatureCard
+          icon="waveform"
+          title="Summary"
+          subtitle="Key notes"
+        />
+      </View>
+
+      <QuizGeneratorModal
+        visible={showQuizGenerator}
+        onClose={() => setShowQuizGenerator(false)}
+      />
 
       {/* Enrolled Classes */}
       <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
@@ -599,9 +585,256 @@ async function callGeminiDirect(
   return null;
 }
 
+const PROMPT_WORDS = [
+  'anything...',
+  'about your lessons...',
+  'to generate a quiz...',
+  'for study tips...',
+  'to explain a concept...',
+  'about deadlines...',
+  'to summarize notes...',
+];
+
+function useTypingEffect(words: string[], typingSpeed = 68, deletingSpeed = 36, pauseTime = 2200) {
+  const [displayedText, setDisplayedText] = useState(words[0] || 'anything...');
+  const [wordIdx, setWordIdx] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [cursorVisible, setCursorVisible] = useState(true);
+
+  useEffect(() => {
+    const cursorTimer = setInterval(() => {
+      setCursorVisible((v) => !v);
+    }, 530);
+    return () => clearInterval(cursorTimer);
+  }, []);
+
+  useEffect(() => {
+    const targetWord = words[wordIdx % words.length];
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (!isDeleting) {
+      if (displayedText.length < targetWord.length) {
+        timeout = setTimeout(() => {
+          setDisplayedText(targetWord.slice(0, displayedText.length + 1));
+        }, typingSpeed);
+      } else {
+        timeout = setTimeout(() => {
+          setIsDeleting(true);
+        }, pauseTime);
+      }
+    } else {
+      if (displayedText.length > 0) {
+        timeout = setTimeout(() => {
+          setDisplayedText(targetWord.slice(0, displayedText.length - 1));
+        }, deletingSpeed);
+      } else {
+        setIsDeleting(false);
+        setWordIdx((prev) => (prev + 1) % words.length);
+        timeout = setTimeout(() => {}, 350);
+      }
+    }
+
+    return () => clearTimeout(timeout);
+  }, [displayedText, isDeleting, wordIdx, words, typingSpeed, deletingSpeed, pauseTime]);
+
+  return { text: displayedText, cursorVisible };
+}
+
+export function ThreeDotsWave({ color = '#6366F1', size = 7 }: { color?: string; size?: number }) {
+  const anim1 = useRef(new Animated.Value(0)).current;
+  const anim2 = useRef(new Animated.Value(0)).current;
+  const anim3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createWave = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: -5.5,
+            duration: 280,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 280,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.delay(Math.max(0, 560 - delay)),
+        ]),
+      );
+    };
+
+    const a1 = createWave(anim1, 0);
+    const a2 = createWave(anim2, 140);
+    const a3 = createWave(anim3, 280);
+
+    a1.start();
+    a2.start();
+    a3.start();
+
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [anim1, anim2, anim3]);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 18, paddingHorizontal: 3 }}>
+      <Animated.View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+          transform: [{ translateY: anim1 }],
+        }}
+      />
+      <Animated.View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+          transform: [{ translateY: anim2 }],
+        }}
+      />
+      <Animated.View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+          transform: [{ translateY: anim3 }],
+        }}
+      />
+    </View>
+  );
+}
+
+function SmoothUserBubble({ message }: { message: ChatMessage }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(14)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim, scaleAnim]);
+
+  return (
+    <Animated.View
+      style={{
+        alignSelf: 'flex-end',
+        maxWidth: '85%',
+        minWidth: 80,
+        backgroundColor: '#007AFF',
+        borderRadius: 20,
+        borderBottomRightRadius: 4,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 2,
+      }}
+    >
+      <Text style={{ fontSize: 15, lineHeight: 22, color: '#FFFFFF', fontWeight: '500' }}>
+        {message.content}
+      </Text>
+      <Text
+        style={{
+          fontSize: 10,
+          color: 'rgba(255, 255, 255, 0.75)',
+          marginTop: 4,
+          alignSelf: 'flex-end',
+        }}
+      >
+        {message.time}
+      </Text>
+    </Animated.View>
+  );
+}
+
+function SmoothAssistantText({
+  text,
+  isStreaming,
+  onComplete,
+  onStreamStep,
+}: {
+  text: string;
+  isStreaming: boolean;
+  onComplete?: () => void;
+  onStreamStep?: () => void;
+}) {
+  const [displayedLength, setDisplayedLength] = useState(isStreaming ? 0 : text.length);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      setDisplayedLength(text.length);
+      return;
+    }
+
+    setDisplayedLength(0);
+    const totalLength = text.length;
+    let current = 0;
+
+    const interval = setInterval(() => {
+      const step = current < 60 ? 2 : current < 220 ? 3 : 5;
+      current = Math.min(totalLength, current + step);
+      setDisplayedLength(current);
+      onStreamStep?.();
+
+      if (current >= totalLength) {
+        clearInterval(interval);
+        onComplete?.();
+      }
+    }, 18);
+
+    return () => clearInterval(interval);
+  }, [text, isStreaming]);
+
+  const visibleText = isStreaming ? text.slice(0, displayedLength) : text;
+
+  return (
+    <Text style={{ fontSize: 14, lineHeight: 22, color: '#1F2937' }}>
+      {visibleText.replace(/\*\*/g, '')}
+      {isStreaming && displayedLength < text.length && (
+        <Text style={{ color: '#6366F1', fontWeight: '700' }}> ▋</Text>
+      )}
+    </Text>
+  );
+}
+
 export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   const { open } = useApp();
+  const { text: typingEffectText, cursorVisible } = useTypingEffect(PROMPT_WORDS);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -745,6 +978,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+      setStreamingMsgId(aiMsg.id);
       setAiStatus((prev) => ({ ...prev, live: isLive, model: replyModel }));
     } catch (err: any) {
       const errMsg: ChatMessage = {
@@ -756,6 +990,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
         live: false,
       };
       setMessages((prev) => [...prev, errMsg]);
+      setStreamingMsgId(errMsg.id);
     } finally {
       setIsThinking(false);
       setTimeout(() => {
@@ -820,13 +1055,13 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       >
         <Pressable
           onPress={onBack || (() => setShowPromptsSheet((prev) => !prev))}
-          accessibilityLabel="Back / Menu"
+          accessibilityLabel={onBack ? 'Back' : 'Menu'}
           style={({ pressed }) => [
             { padding: 4, borderRadius: 8 },
             pressed && { opacity: 0.6 },
           ]}
         >
-          <Icon name="line.2.horizontal" size={24} color={colors.ink} />
+          <Icon name={onBack ? 'arrow.left' : 'line.2.horizontal'} size={24} color={colors.ink} />
         </Pressable>
       </View>
 
@@ -915,26 +1150,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
         >
           {messages.map((m) =>
             m.role === 'user' ? (
-              <View
-                key={m.id}
-                style={{
-                  alignSelf: 'flex-end',
-                  maxWidth: '85%',
-                  minWidth: 80,
-                  backgroundColor: '#007AFF',
-                  borderRadius: 20,
-                  borderBottomRightRadius: 4,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                }}
-              >
-                <Text style={{ fontSize: 15, lineHeight: 22, color: '#FFFFFF', fontWeight: '500' }}>
-                  {m.content}
-                </Text>
-                <Text style={{ fontSize: 10, color: 'rgba(255, 255, 255, 0.75)', marginTop: 4, alignSelf: 'flex-end' }}>
-                  {m.time}
-                </Text>
-              </View>
+              <SmoothUserBubble key={m.id} message={m} />
             ) : (
               <View
                 key={m.id}
@@ -962,49 +1178,77 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                   <Text style={{ fontSize: 11, color: colors.muted }}>{m.time}</Text>
                 </View>
 
-                <Text style={{ fontSize: 14, lineHeight: 22, color: '#1F2937' }}>
-                  {(m.content || '').replace(/\*\*/g, '')}
-                </Text>
+                <SmoothAssistantText
+                  text={m.content || 'No explanation returned.'}
+                  isStreaming={streamingMsgId === m.id}
+                  onStreamStep={() => {
+                    scrollRef.current?.scrollToEnd({ animated: true });
+                  }}
+                  onComplete={() => {
+                    setStreamingMsgId(null);
+                    setTimeout(() => {
+                      scrollRef.current?.scrollToEnd({ animated: true });
+                    }, 60);
+                  }}
+                />
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
-                  <Pressable
-                    onPress={() => handleCopy(m.id, m.content)}
-                    style={({ pressed }) => [
-                      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: copiedId === m.id ? '#DCFCE7' : '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <Icon name={copiedId === m.id ? 'checkmark' : 'doc.on.doc'} size={12} color={copiedId === m.id ? '#15803D' : '#4B5563'} />
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: copiedId === m.id ? '#15803D' : '#4B5563' }}>
-                      {copiedId === m.id ? 'Copied!' : 'Copy'}
-                    </Text>
-                  </Pressable>
+                {streamingMsgId !== m.id && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+                    <Pressable
+                      onPress={() => handleCopy(m.id, m.content)}
+                      style={({ pressed }) => [
+                        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: copiedId === m.id ? '#DCFCE7' : '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Icon name={copiedId === m.id ? 'checkmark' : 'doc.on.doc'} size={12} color={copiedId === m.id ? '#15803D' : '#4B5563'} />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: copiedId === m.id ? '#15803D' : '#4B5563' }}>
+                        {copiedId === m.id ? 'Copied!' : 'Copy'}
+                      </Text>
+                    </Pressable>
 
-                  <Pressable
-                    onPress={() => open('book')}
-                    style={({ pressed }) => [
-                      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#C7D2FE' },
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <Icon name="calendar" size={12} color="#4F46E5" />
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#4F46E5' }}>
-                      Ask Teacher in Consultation
-                    </Text>
-                  </Pressable>
-                </View>
+                    <Pressable
+                      onPress={() => open('book')}
+                      style={({ pressed }) => [
+                        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#C7D2FE' },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Icon name="calendar" size={12} color="#4F46E5" />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#4F46E5' }}>
+                        Ask Teacher in Consultation
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             ),
           )}
 
           {isThinking && (
-            <View style={{ alignSelf: 'flex-start', backgroundColor: '#F8FAFC', borderRadius: 20, borderBottomLeftRadius: 4, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <GeminiStar size={20} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#4338CA' }}>Gemini is thinking…</Text>
-              </View>
-              <ActivityIndicator size="small" color="#2563EB" />
-            </View>
+            <Animated.View
+              style={{
+                alignSelf: 'flex-start',
+                backgroundColor: '#F8FAFC',
+                borderRadius: 20,
+                borderBottomLeftRadius: 4,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 8,
+                elevation: 1,
+              }}
+            >
+              <GeminiStar size={18} />
+              <ThreeDotsWave color="#6366F1" size={7} />
+            </Animated.View>
           )}
         </ScrollView>
       )}
@@ -1060,105 +1304,151 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
         </View>
       )}
 
-      {/* 3. FLOATING CAPSULE INPUT DOCK (Exact Screenshot Structure: [+] [Ask Gemini] [Mic] [Waveform/Send]) */}
+      {/* 3. FLOATING GLASSMORPHIC CAPSULE INPUT DOCK */}
       <View
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 36,
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 10,
-          elevation: 4,
-        }}
+        style={[
+          {
+            borderRadius: 36,
+            overflow: 'hidden',
+            backgroundColor: 'rgba(255, 255, 255, 0.76)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.85)',
+            borderTopColor: 'rgba(255, 255, 255, 0.95)',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.08,
+            shadowRadius: 20,
+            elevation: 6,
+          },
+          Platform.OS === 'web'
+            ? ({
+                backdropFilter: 'blur(24px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+              } as any)
+            : null,
+        ]}
       >
-        {/* Left: [+] Add / Prompts button */}
-        <Pressable
-          onPress={() => setShowPromptsSheet((prev) => !prev)}
-          accessibilityLabel="Add / Quick Prompts"
-          style={({ pressed }) => [
-            {
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <Icon name="plus" size={22} color="#6B7280" />
-        </Pressable>
-
-        {/* Center: TextInput */}
-        <TextInput
-          placeholder="Ask anything..."
-          placeholderTextColor="#9CA3AF"
-          value={input}
-          onChangeText={setInput}
-          onSubmitEditing={() => handleSend()}
-          multiline
-          maxLength={1000}
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 75 : 45}
+          tint="light"
           style={{
-            flex: 1,
-            maxHeight: 80,
-            fontSize: 16,
-            color: colors.ink,
-            paddingVertical: 4,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingLeft: 8,
+            paddingRight: 8,
+            paddingVertical: 6,
+            minHeight: 54,
+            gap: 10,
           }}
-        />
-
-        {/* Right: Microphone Button */}
-        <Pressable
-          onPress={handleMicPress}
-          accessibilityLabel="Voice Input"
-          style={({ pressed }) => [
-            {
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            pressed && { opacity: 0.6 },
-            isListening && { backgroundColor: '#FEE2E2' },
-          ]}
         >
-          <Icon name="mic" size={21} color={isListening ? '#DC2626' : '#6B7280'} />
-        </Pressable>
+          {/* Left: Microphone Button */}
+          <Pressable
+            onPress={handleMicPress}
+            accessibilityLabel="Voice Input"
+            style={({ pressed }) => [
+              {
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: isListening ? '#FEE2E2' : 'transparent',
+              },
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Icon name="mic" size={21} color={isListening ? '#DC2626' : '#6B7280'} />
+          </Pressable>
 
-        {/* Far Right: Circular Waveform (|||) or Send Arrow Button */}
-        <Pressable
-          onPress={() => (input.trim() ? handleSend() : handleWaveformPress())}
-          disabled={isThinking}
-          accessibilityLabel={input.trim() ? 'Send' : 'Live Voice Session'}
-          style={({ pressed }) => [
-            {
-              width: 40,
+          {/* Center: TextInput with smooth typing effect placeholder aligned with mic icon */}
+          <View
+            style={{
+              flex: 1,
               height: 40,
-              borderRadius: 20,
-              backgroundColor: input.trim() ? '#007AFF' : '#1E3A8A', // Deep blue circular button matching screenshot
-              alignItems: 'center',
               justifyContent: 'center',
-            },
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          {isThinking ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : input.trim() ? (
-            <Icon name="arrow.up" size={18} color="#FFFFFF" />
-          ) : (
-            <Icon name="waveform" size={18} color="#FFFFFF" />
-          )}
-        </Pressable>
+              position: 'relative',
+            }}
+          >
+            {/* Animated Typewriter Placeholder (Shown only when input is empty) */}
+            {!input && (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontSize: 15,
+                    fontFamily: fontStack,
+                    color: '#8E8E93',
+                    lineHeight: 20,
+                  }}
+                >
+                  Ask me{' '}
+                  <Text style={{ color: colors.ink, fontWeight: '500' }}>
+                    {typingEffectText}
+                  </Text>
+                  <Text style={{ color: '#8E8E93', opacity: cursorVisible ? 1 : 0 }}>|</Text>
+                </Text>
+              </View>
+            )}
+
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={() => handleSend()}
+              returnKeyType="send"
+              maxLength={1000}
+              multiline={false}
+              style={{
+                fontSize: 15,
+                fontFamily: fontStack,
+                color: colors.ink,
+                paddingVertical: 0,
+                paddingHorizontal: 0,
+                margin: 0,
+                height: 40,
+                textAlignVertical: 'center',
+                backgroundColor: 'transparent',
+                ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+              }}
+            />
+          </View>
+
+          {/* Far Right: Circular Waveform (|||) or Send Arrow Button */}
+          <Pressable
+            onPress={() => (input.trim() ? handleSend() : handleWaveformPress())}
+            disabled={isThinking}
+            accessibilityLabel={input.trim() ? 'Send' : 'Live Voice Session'}
+            style={({ pressed }) => [
+              {
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: input.trim() ? '#007AFF' : '#1E3A8A',
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            {isThinking ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : input.trim() ? (
+              <Icon name="arrow.up" size={18} color="#FFFFFF" />
+            ) : (
+              <Icon name="waveform" size={18} color="#FFFFFF" />
+            )}
+          </Pressable>
+        </BlurView>
       </View>
     </View>
   </KeyboardAvoidingView>

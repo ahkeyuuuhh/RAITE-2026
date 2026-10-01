@@ -13,6 +13,9 @@ export const pool = new pg.Pool({
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
 });
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle database client:', err.message || err);
+});
 export async function transaction(fn) {
   const client = await pool.connect();
   try {

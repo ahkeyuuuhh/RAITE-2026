@@ -50,6 +50,31 @@ import { CreateDraft, Quiz, Review, Submissions } from './assessment-screens';
 import { AuthFlow } from './auth-flow';
 import type { Assessment, Config, Notice, Profile } from './types';
 
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const fontLinkId = 'sf-inter-webfont';
+  if (!document.getElementById(fontLinkId)) {
+    const link = document.createElement('link');
+    link.id = fontLinkId;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap';
+    document.head.appendChild(link);
+
+    const style = document.createElement('style');
+    style.id = 'sf-inter-styles';
+    style.textContent = `
+      * {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Inter", system-ui, -apple-system-subheadline, "Helvetica Neue", sans-serif;
+      }
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: #F2F2F7;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -339,13 +364,12 @@ function Workspace({
           </ScrollView>
         )}
         {tab !== 'agent' && (
-          <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 16) }]}>
             {/* 1. Main Frosted Glass Capsule Pill */}
             <View style={styles.dockContainer}>
-              <BlurView intensity={Platform.OS === 'ios' ? 75 : 45} tint="light" style={styles.dock}>
+              <BlurView intensity={Platform.OS === 'ios' ? 80 : 50} tint="light" style={styles.dock}>
                 {tabs.map((t) => {
                   const isSelected = tab === t.key;
-                  const isAgent = t.key === 'agent';
                   return (
                     <Pressable
                       key={t.key}
@@ -358,13 +382,16 @@ function Workspace({
                         setError('');
                         refresh();
                       }}
-                      style={styles.tabPressable}
+                      style={({ pressed }) => [
+                        styles.tabPressable,
+                        pressed && styles.tabPressed,
+                      ]}
                     >
                       <View style={[styles.tabContent, isSelected && styles.activeTabChip]}>
                         <Icon
                           name={t.icon}
-                          size={19}
-                          color={isSelected ? '#111827' : '#71717A'}
+                          size={22}
+                          color={isSelected ? '#111827' : '#6B7280'}
                         />
                         <Text
                           style={[
@@ -382,19 +409,19 @@ function Workspace({
               </BlurView>
             </View>
 
-            {/* 2. Separate Companion Frosted Glass Circle with More (⋮) Button */}
+            {/* 2. Separate Circular Glass More Button */}
             <View style={styles.moreWrap}>
-              <BlurView intensity={Platform.OS === 'ios' ? 75 : 45} tint="light" style={styles.moreBlur}>
+              <BlurView intensity={Platform.OS === 'ios' ? 80 : 50} tint="light" style={styles.moreBlur}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="More options"
                   onPress={() => open('notifications')}
                   style={({ pressed }) => [
                     styles.moreButton,
-                    pressed && { opacity: 0.6 },
+                    pressed && styles.moreButtonPressed,
                   ]}
                 >
-                  <Icon name="ellipsis.vertical" size={17} color="#68686F" />
+                  <Icon name="ellipsis.vertical" size={21} color="#374151" />
                 </Pressable>
               </BlurView>
             </View>
@@ -506,58 +533,71 @@ const styles = StyleSheet.create({
   },
   dockWrap: {
     position: 'absolute',
-    left: 12,
-    right: 12,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    zIndex: 50,
+    gap: 12,
+    zIndex: 100,
   },
   dockContainer: {
     flex: 1,
-    maxWidth: 390,
-    height: 64,
-    borderRadius: 36,
+    maxWidth: 420,
+    height: 68,
+    borderRadius: 34,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.75)',
+    borderTopColor: 'rgba(255, 255, 255, 0.90)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 28,
+    elevation: 8,
+    ...(Platform.OS === 'web'
+      ? {
+          backdropFilter: 'blur(28px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+        }
+      : {}),
   },
   dock: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    height: '100%',
   },
   tabPressable: {
     flex: 1,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
+  },
+  tabPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.95 }],
   },
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 22,
-    minWidth: 46,
-    gap: 3,
+    minWidth: 44,
+    gap: 3.5,
   },
   activeTabChip: {
-    backgroundColor: 'rgba(0, 0, 0, 0.055)',
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    paddingHorizontal: 14,
   },
   tabLabel: {
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: -0.2,
   },
   activeTabLabel: {
@@ -565,22 +605,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   inactiveTabLabel: {
-    color: '#71717A',
+    color: '#6B7280',
     fontWeight: '500',
   },
   moreWrap: {
-    width: 56,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.75)',
+    borderTopColor: 'rgba(255, 255, 255, 0.90)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 28,
+    elevation: 8,
+    ...(Platform.OS === 'web'
+      ? {
+          backdropFilter: 'blur(28px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+        }
+      : {}),
   },
   moreBlur: {
     flex: 1,
@@ -592,6 +639,12 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
+  },
+  moreButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.94 }],
   },
   modalTop: {
     flexDirection: 'row',

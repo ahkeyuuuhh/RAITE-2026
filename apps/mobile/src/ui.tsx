@@ -16,12 +16,18 @@ import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from 'react-nativ
 export const colors = {
   bg: '#F2F2F7',
   ink: '#1C1C1E',
-  muted: '#68686F',
+  muted: '#8E8E93',
   soft: '#F6F6F9',
   blue: '#0064D9',
   green: '#24754B',
-  line: '#E7E7ED',
+  line: '#E5E5EA',
 };
+
+export const fontStack = Platform.select({
+  ios: 'System',
+  web: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Inter", -apple-system-subheadline, "Helvetica Neue", sans-serif',
+  default: 'System',
+});
 export type IconName =
   | 'house.fill'
   | 'calendar'
@@ -53,8 +59,17 @@ export type IconName =
   | 'waveform'
   | 'chevron.down'
   | 'ellipsis.vertical'
-  | 'pencil';
+  | 'pencil'
+  | 'camera'
+  | 'arrow.up.doc'
+  | 'flame.fill'
+  | 'drop.fill'
+  | 'moon.fill'
+  | 'dumbbell.fill'
+  | 'book.closed.fill';
 const paths: Record<IconName, string> = {
+  camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  'arrow.up.doc': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M12 18v-6m-3 3 3-3 3 3',
   'ellipsis.vertical': '',
   'line.2.horizontal': 'M4 9h16M4 15h16',
   mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm5 7a5 5 0 0 1-10 0M12 17v4m-4 0h8',
@@ -91,6 +106,11 @@ const paths: Record<IconName, string> = {
   'arrow.right': 'M4 12h16m-6-6 6 6-6 6',
   'building.columns.fill': 'M4 10h16M4 14h16M4 18h16M2 22h20M12 2 2 7h20z',
   checkmark: 'm5 12 5 5L20 7',
+  'flame.fill': 'M12 23c-4.97 0-9-3.8-9-8.5 0-3.37 2.1-6.14 4.5-8.5.57-.57 1.5-.16 1.5.65 0 2.2 1.34 3.85 3 3.85 1.66 0 2-2 2-3.5 0-.6.44-1.09 1.04-1.14 3.43-.3 6.96 3.64 6.96 8.64 0 4.7-4.03 8.5-9 8.5z',
+  'drop.fill': 'M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z',
+  'moon.fill': 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+  'dumbbell.fill': 'M6.5 6.5l11 11M3 8l3-3 2.5 2.5-3 3zM15.5 20.5l3-3 2.5 2.5-3 3zM1.5 9.5l4-4M18.5 22.5l4-4',
+  'book.closed.fill': 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z',
 };
 // iOS uses genuine system SF Symbols. Android uses small original vector fallbacks
 // following the same monochrome visual language (no Lucide/Material font dependency).
@@ -104,6 +124,11 @@ const sfSymbolMap: Partial<Record<IconName, any>> = {
   'arrow.counterclockwise': 'arrow.counterclockwise',
   'questionmark.circle': 'questionmark.circle',
   'ellipsis.vertical': 'ellipsis',
+  'flame.fill': 'flame.fill',
+  'drop.fill': 'drop.fill',
+  'moon.fill': 'moon.fill',
+  'dumbbell.fill': 'dumbbell.fill',
+  'book.closed.fill': 'book.closed.fill',
 };
 
 export function Icon({
@@ -313,29 +338,387 @@ export function Ring({ value, total }: { value: number; total: number }) {
     </View>
   );
 }
+
+export function ProgressRing({
+  size = 42,
+  pct = 0.75,
+  strokeWidth = 4.5,
+  color = colors.ink,
+  trackColor = '#E5E5EA',
+}: {
+  size?: number;
+  pct?: number;
+  strokeWidth?: number;
+  color?: string;
+  trackColor?: string;
+}) {
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth={strokeWidth}
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${pct * c} ${c}`}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${size / 2}, ${size / 2}`}
+        />
+      </Svg>
+    </View>
+  );
+}
+
+export function BarChartWidget({
+  heights = [10, 16, 26, 18, 12],
+  activeIndex = 2,
+  width = 36,
+  maxHeight = 28,
+  activeColor = colors.ink,
+  inactiveColor = '#E5E5EA',
+}: {
+  heights?: number[];
+  activeIndex?: number;
+  width?: number;
+  maxHeight?: number;
+  activeColor?: string;
+  inactiveColor?: string;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: maxHeight, gap: 3.5, width }}>
+      {heights.map((h, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: h,
+            borderRadius: 3,
+            backgroundColor: i === activeIndex ? activeColor : inactiveColor,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+export function SparklineWidget({
+  width = 44,
+  height = 24,
+  color = colors.ink,
+}: {
+  width?: number;
+  height?: number;
+  color?: string;
+}) {
+  return (
+    <View style={{ width, height }}>
+      <Svg width={width} height={height} viewBox="0 0 44 24" fill="none">
+        <Defs>
+          <LinearGradient id="sparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor={color} stopOpacity={0.18} />
+            <Stop offset="100%" stopColor={color} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Path
+          d="M2 18 C8 18, 12 13, 16 13 C21 13, 24 3, 30 3 C36 3, 39 12, 42 12"
+          stroke={color}
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <Path
+          d="M2 18 C8 18, 12 13, 16 13 C21 13, 24 3, 30 3 C36 3, 39 12, 42 12 L42 24 L2 24 Z"
+          fill="url(#sparkGrad)"
+        />
+      </Svg>
+    </View>
+  );
+}
+export function MetricCard({
+  icon,
+  title,
+  value,
+  unit,
+  widget,
+  onPress,
+  style,
+  accentColor,
+  compact = false,
+}: {
+  icon?: IconName;
+  title: string;
+  value: string | number;
+  unit?: string;
+  widget?: React.ReactNode;
+  onPress?: () => void;
+  style?: ViewStyle;
+  accentColor?: string;
+  compact?: boolean;
+}) {
+  const content = (
+    <View
+      style={[
+        s.metricCard,
+        compact && { padding: 12, borderRadius: 20, minHeight: 96 },
+        style,
+      ]}
+    >
+      {/* Top Header: Icon + Category Title */}
+      <View style={[s.metricCardHeader, compact && { gap: 6 }]}>
+        {icon && (
+          <Icon
+            name={icon}
+            size={compact ? 15 : 18}
+            color={accentColor || colors.ink}
+          />
+        )}
+        <Text
+          numberOfLines={1}
+          style={[
+            s.metricCardTitle,
+            compact && { fontSize: 13 },
+            accentColor ? { color: accentColor } : null,
+          ]}
+        >
+          {title}
+        </Text>
+      </View>
+
+      {/* Bottom Content: Bold Stat & Unit on left, Widget on right */}
+      <View style={[s.metricCardBottom, compact && { marginTop: 12 }]}>
+        <View style={s.metricCardValueCol}>
+          <Text
+            numberOfLines={1}
+            style={[
+              s.metricCardValue,
+              compact && { fontSize: 20, lineHeight: 24, letterSpacing: -0.5 },
+              accentColor ? { color: accentColor } : null,
+            ]}
+          >
+            {value}
+          </Text>
+          {unit ? (
+            <Text
+              numberOfLines={1}
+              style={[s.metricCardUnit, compact && { fontSize: 11, marginTop: 1 }]}
+            >
+              {unit}
+            </Text>
+          ) : null}
+        </View>
+        {widget ? <View style={s.metricCardWidgetBox}>{widget}</View> : null}
+      </View>
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}, ${value} ${unit || ''}`}
+        onPress={onPress}
+        style={({ pressed }) => [
+          { flex: 1 },
+          pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] },
+        ]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={{ flex: 1 }}>{content}</View>;
+}
+
+export function FeatureCard({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  style,
+}: {
+  icon: IconName;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  style?: ViewStyle;
+}) {
+  const content = (
+    <View style={[s.featureCard, style]}>
+      <View style={s.featureCardIconBox}>
+        <Icon name={icon} size={26} color={colors.ink} />
+      </View>
+      <Text numberOfLines={1} style={s.featureCardTitle}>
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text numberOfLines={1} style={s.featureCardSubtitle}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}, ${subtitle || ''}`}
+        onPress={onPress}
+        style={({ pressed }) => [
+          { flex: 1 },
+          pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+        ]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={{ flex: 1 }}>{content}</View>;
+}
+
 export const s = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderRadius: 26,
+    borderRadius: 24,
     borderCurve: 'continuous',
-    padding: 22,
+    padding: 20,
     gap: 14,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.035)',
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 15,
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
     elevation: 1,
   },
-  heading: { fontSize: 22, fontWeight: '700', letterSpacing: -0.5, color: colors.ink },
-  body: { fontSize: 15, lineHeight: 23, color: colors.muted },
+  featureCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+    shadowColor: '#000',
+    shadowOpacity: 0.035,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    minHeight: 116,
+  },
+  featureCardIconBox: {
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: colors.ink,
+    fontFamily: fontStack,
+    textAlign: 'center',
+  },
+  featureCardSubtitle: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: fontStack,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  metricCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    padding: 16,
+    minHeight: 116,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+    shadowColor: '#000',
+    shadowOpacity: 0.035,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  metricCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  metricCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.ink,
+    fontFamily: fontStack,
+    letterSpacing: -0.2,
+  },
+  metricCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 18,
+  },
+  metricCardValueCol: {
+    justifyContent: 'flex-end',
+  },
+  metricCardValue: {
+    fontSize: 27,
+    fontWeight: '700',
+    color: colors.ink,
+    fontFamily: fontStack,
+    letterSpacing: -0.8,
+    lineHeight: 31,
+  },
+  metricCardUnit: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.muted,
+    fontFamily: fontStack,
+    marginTop: 2,
+  },
+  metricCardWidgetBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    color: colors.ink,
+    fontFamily: fontStack,
+  },
+  body: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.muted,
+    fontFamily: fontStack,
+    letterSpacing: -0.2,
+  },
   label: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.8,
+    letterSpacing: 1.5,
     color: colors.muted,
     textTransform: 'uppercase',
+    fontFamily: fontStack,
   },
   pill: { borderRadius: 50, paddingVertical: 7, paddingHorizontal: 11, alignSelf: 'flex-start' },
   button: {
@@ -348,7 +731,13 @@ export const s = StyleSheet.create({
     paddingVertical: 12,
   },
   secondary: { backgroundColor: '#EFEFF4' },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  buttonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: fontStack,
+    letterSpacing: -0.2,
+  },
   input: {
     borderRadius: 16,
     backgroundColor: colors.soft,
@@ -358,11 +747,29 @@ export const s = StyleSheet.create({
     padding: 14,
     fontSize: 15,
     color: colors.ink,
+    fontFamily: fontStack,
   },
-  fieldLabel: { fontSize: 13, color: colors.ink, fontWeight: '600' },
+  fieldLabel: {
+    fontSize: 13,
+    color: colors.ink,
+    fontWeight: '600',
+    fontFamily: fontStack,
+    letterSpacing: -0.2,
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 10, minHeight: 56 },
-  rowTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  caption: { fontSize: 12, lineHeight: 18, color: colors.muted },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.ink,
+    fontFamily: fontStack,
+    letterSpacing: -0.2,
+  },
+  caption: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.muted,
+    fontFamily: fontStack,
+  },
   iconBox: {
     height: 44,
     width: 44,
@@ -373,7 +780,13 @@ export const s = StyleSheet.create({
   },
   hstack: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stack: { gap: 16 },
-  number: { fontSize: 32, fontWeight: '700', letterSpacing: -1, color: colors.ink },
+  number: {
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.8,
+    color: colors.ink,
+    fontFamily: fontStack,
+  },
   divider: { height: 1, backgroundColor: colors.line },
   error: { backgroundColor: '#FCECEB', padding: 15, borderRadius: 16 },
   errorText: { color: '#9F2925', fontSize: 14, lineHeight: 21 },

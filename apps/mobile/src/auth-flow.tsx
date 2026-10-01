@@ -24,7 +24,6 @@ import {
 import type { Config, Profile } from './types';
 import { authClient, request } from './api';
 import { CodeSlots } from './code-slots';
-import { SlideCommit } from './slide-commit';
 import { GlideSelect, type SelectOption } from './glide-select';
 import { DEFAULT_PH_SCHOOLS, fetchPhilippineSchools } from './schools-api';
 
@@ -77,6 +76,7 @@ export function AuthFlow({
   const [otp, setOtp] = useState('');
   const [resendTimer, setResendTimer] = useState(45);
   const [otpError, setOtpError] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   // Screen 5:
   const [password, setPassword] = useState('');
@@ -704,27 +704,26 @@ export function AuthFlow({
                 </View>
 
                 <View style={styles.footerSection}>
-                  <SlideCommit
-                    label="Slide to verify code"
-                    doneLabel="Code Verified"
-                    errorLabel="Verification failed"
-                    disabled={otp.length < 6}
-                    onConfirm={async () => {
+                  <Button
+                    title={isVerifyingOtp ? 'Verifying...' : 'Verify'}
+                    disabled={otp.length < 6 || isVerifyingOtp}
+                    busy={isVerifyingOtp}
+                    onPress={async () => {
                       if (otp.length < 6) {
                         setOtpError('Please enter all 6 digits of the code.');
-                        throw new Error('Incomplete code');
+                        return;
                       }
                       setOtpError('');
-                      // Brief smooth verification pause (350ms)
-                      await new Promise((resolve) => setTimeout(resolve, 350));
-                    }}
-                    onDone={() => {
-                      setTimeout(() => {
+                      setIsVerifyingOtp(true);
+                      try {
+                        // Brief smooth verification pause (300ms)
+                        await new Promise((resolve) => setTimeout(resolve, 300));
                         navigateTo('registration', 'forward');
-                      }, 400);
-                    }}
-                    onError={() => {
-                      setOtpError('Please enter all 6 digits of the code.');
+                      } catch {
+                        setOtpError('Verification failed. Please try again.');
+                      } finally {
+                        setIsVerifyingOtp(false);
+                      }
                     }}
                   />
                 </View>

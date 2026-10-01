@@ -8,6 +8,9 @@ import type { Config } from './types';
 
 function resolveApiUrl(): string {
   if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      return `${window.location.protocol}//${window.location.hostname}:3001`;
+    }
     return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
   }
   const hostUri =
