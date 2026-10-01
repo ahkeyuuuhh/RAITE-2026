@@ -340,49 +340,65 @@ function Workspace({
         )}
         {tab !== 'agent' && (
           <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 12) }]}>
-            <BlurView intensity={70} tint="light" style={styles.dock}>
-            {tabs.map((t) => {
-              const isSelected = tab === t.key;
-              const isAgent = t.key === 'agent';
-              return (
+            {/* 1. Main Frosted Glass Capsule Pill */}
+            <View style={styles.dockContainer}>
+              <BlurView intensity={Platform.OS === 'ios' ? 75 : 45} tint="light" style={styles.dock}>
+                {tabs.map((t) => {
+                  const isSelected = tab === t.key;
+                  const isAgent = t.key === 'agent';
+                  return (
+                    <Pressable
+                      key={t.key}
+                      accessibilityRole="tab"
+                      accessibilityLabel={t.label}
+                      accessibilityState={{ selected: isSelected }}
+                      onPress={() => {
+                        setTab(t.key);
+                        setMessage('');
+                        setError('');
+                        refresh();
+                      }}
+                      style={styles.tabPressable}
+                    >
+                      <View style={[styles.tabContent, isSelected && styles.activeTabChip]}>
+                        <Icon
+                          name={t.icon}
+                          size={19}
+                          color={isSelected ? '#111827' : '#71717A'}
+                        />
+                        <Text
+                          style={[
+                            styles.tabLabel,
+                            isSelected ? styles.activeTabLabel : styles.inactiveTabLabel,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {t.label}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </BlurView>
+            </View>
+
+            {/* 2. Separate Companion Frosted Glass Circle with More (⋮) Button */}
+            <View style={styles.moreWrap}>
+              <BlurView intensity={Platform.OS === 'ios' ? 75 : 45} tint="light" style={styles.moreBlur}>
                 <Pressable
-                  key={t.key}
-                  accessibilityRole="tab"
-                  accessibilityLabel={t.label}
-                  accessibilityState={{ selected: isSelected }}
-                  onPress={() => {
-                    setTab(t.key);
-                    setMessage('');
-                    setError('');
-                    refresh();
-                  }}
-                  style={[
-                    styles.tab,
-                    isSelected && !isAgent && styles.activeTab,
-                    isAgent && styles.agentTab,
+                  accessibilityRole="button"
+                  accessibilityLabel="More options"
+                  onPress={() => open('notifications')}
+                  style={({ pressed }) => [
+                    styles.moreButton,
+                    pressed && { opacity: 0.6 },
                   ]}
                 >
-                  {isAgent ? (
-                    <View style={[styles.agentPlusBadge, isSelected && styles.agentPlusBadgeActive]}>
-                      <Icon name="plus" size={17} color="#FFFFFF" />
-                    </View>
-                  ) : (
-                    <Icon name={t.icon} size={21} color={isSelected ? colors.ink : colors.muted} />
-                  )}
-                  <Text
-                    style={[
-                      styles.tabLabel,
-                      isSelected && { color: colors.ink, fontWeight: '700' },
-                      isAgent && isSelected && { color: colors.blue },
-                    ]}
-                  >
-                    {t.label}
-                  </Text>
+                  <Icon name="ellipsis.vertical" size={17} color="#68686F" />
                 </Pressable>
-              );
-            })}
-          </BlurView>
-        </View>
+              </BlurView>
+            </View>
+          </View>
         )}
         <Modal
           visible={Boolean(modal)}
@@ -488,49 +504,95 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dockWrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
-  dock: {
+  dockWrap: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
     flexDirection: 'row',
-    padding: 7,
-    borderRadius: 100,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,.06)',
-    backgroundColor: 'rgba(255,255,255,.94)',
-    maxWidth: 460,
-    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    zIndex: 50,
   },
-  tab: {
+  dockContainer: {
     flex: 1,
-    minHeight: 58,
-    justifyContent: 'center',
+    maxWidth: 390,
+    height: 64,
+    borderRadius: 36,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  dock: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderRadius: 100,
+    justifyContent: 'space-around',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
-  activeTab: { backgroundColor: '#E8E8ED' },
-  agentTab: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  agentPlusBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#6366F1',
+  tabPressable: {
+    flex: 1,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 3,
   },
-  agentPlusBadgeActive: {
-    backgroundColor: colors.blue,
-    transform: [{ scale: 1.08 }],
+  tabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+    minWidth: 46,
+    gap: 3,
   },
-  tabLabel: { fontSize: 10, fontWeight: '600', color: colors.muted },
+  activeTabChip: {
+    backgroundColor: 'rgba(0, 0, 0, 0.055)',
+    paddingHorizontal: 12,
+  },
+  tabLabel: {
+    fontSize: 10.5,
+    letterSpacing: -0.2,
+  },
+  activeTabLabel: {
+    color: '#111827',
+    fontWeight: '600',
+  },
+  inactiveTabLabel: {
+    color: '#71717A',
+    fontWeight: '500',
+  },
+  moreWrap: {
+    width: 56,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  moreBlur: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreButton: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalTop: {
     flexDirection: 'row',
     alignItems: 'center',

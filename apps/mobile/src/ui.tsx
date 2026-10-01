@@ -52,8 +52,10 @@ export type IconName =
   | 'mic'
   | 'waveform'
   | 'chevron.down'
+  | 'ellipsis.vertical'
   | 'pencil';
 const paths: Record<IconName, string> = {
+  'ellipsis.vertical': '',
   'line.2.horizontal': 'M4 9h16M4 15h16',
   mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm5 7a5 5 0 0 1-10 0M12 17v4m-4 0h8',
   waveform: 'M7 10v4M12 5v14M17 9v6',
@@ -101,6 +103,7 @@ const sfSymbolMap: Partial<Record<IconName, any>> = {
   'doc.on.doc': 'doc.on.doc',
   'arrow.counterclockwise': 'arrow.counterclockwise',
   'questionmark.circle': 'questionmark.circle',
+  'ellipsis.vertical': 'ellipsis',
 };
 
 export function Icon({
@@ -134,7 +137,15 @@ export function Icon({
     >
       {name === 'calendar' && <Rect x={3} y={5} width={18} height={17} rx={3} />}
       {['clock', 'checkmark.circle.fill'].includes(name) && <Circle cx={12} cy={12} r={10} />}
-      <Path d={paths[name]} />
+      {name === 'ellipsis.vertical' ? (
+        <>
+          <Circle cx={12} cy={5} r={1.6} fill={color} stroke="none" />
+          <Circle cx={12} cy={12} r={1.6} fill={color} stroke="none" />
+          <Circle cx={12} cy={19} r={1.6} fill={color} stroke="none" />
+        </>
+      ) : (
+        <Path d={paths[name]} />
+      )}
     </Svg>
   );
 }
