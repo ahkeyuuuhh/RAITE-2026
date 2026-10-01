@@ -49,6 +49,7 @@ import {
 import { CreateDraft, Quiz, Review, Submissions } from './assessment-screens';
 import { QuizGeneratorScreen } from './quiz-generator-modal';
 import { AuthFlow } from './auth-flow';
+import { ProfessorProfileScreen } from './professor-profile';
 import type { Assessment, Config, Notice, Profile } from './types';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -218,7 +219,8 @@ function Workspace({
     [message, setMessage] = useState(''),
     [error, setError] = useState(''),
     [modal, setModal] = useState<{ kind: string; id?: string }>(),
-    [standaloneScreen, setStandaloneScreen] = useState<string | null>(null);
+    [standaloneScreen, setStandaloneScreen] = useState<string | null>(null),
+    [professorClassId, setProfessorClassId] = useState<string>();
   const insets = useSafeAreaInsets();
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
   const open = useCallback((kind: string, id?: string) => {
@@ -232,8 +234,13 @@ function Workspace({
       setTab('agent');
       return;
     }
+    if (kind === 'class' && profile.role === 'teacher' && id) {
+      setModal(undefined);
+      setProfessorClassId(id);
+      return;
+    }
     setModal({ kind, id });
-  }, []);
+  }, [profile.role]);
   const act = async <T,>(fn: () => Promise<T>, success?: string): Promise<T | undefined> => {
     if (busy) return;
     setBusy(true);
@@ -287,6 +294,9 @@ function Workspace({
     }
     if (tab === 'calendar') {
       return <Calendar />;
+    }
+    if (tab === 'profile' && profile.role === 'teacher') {
+      return <ProfessorProfileScreen onLogout={onLogout} />;
     }
     return (
       <View style={s.stack}>
@@ -363,7 +373,6 @@ function Workspace({
         );
     }
   };
-
   if (standaloneScreen === 'quiz-gen') {
     return (
       <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
@@ -379,10 +388,21 @@ function Workspace({
     );
   }
 
+  const isProfessorClassroom = profile.role === 'teacher' && Boolean(professorClassId);
   return (
     <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
       <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-        {tab !== 'agent' && !(tab === 'home' && profile.role === 'teacher') && (
+        {isProfessorClassroom ? (
+          <View style={{ flex: 1 }}>
+            {notice}
+            <ClassDetail
+              classId={professorClassId!}
+              {...({ onBack: () => setProfessorClassId(undefined) } as any)}
+            />
+          </View>
+        ) : (
+          <>
+        {tab !== 'agent' && !(tab === 'home' && profile.role === 'teacher') && !(tab === 'profile' && profile.role === 'teacher') && (
           <View style={styles.top}>
             <View>
               <Label>{profile.role === 'teacher' ? 'Teacher workspace' : 'Student workspace'}</Label>
@@ -500,6 +520,8 @@ function Workspace({
               </BlurView>
             </View>
           </View>
+        )}
+          </>
         )}
         <Modal
           visible={Boolean(modal)}

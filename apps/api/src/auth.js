@@ -21,8 +21,7 @@ export async function authenticate(req, res, next) {
     // 1. Direct application account/profile lookup
     const profile = await one(
       pool,
-      `select p.* from classassist.profiles p
-       join classassist.accounts a on a.id = p.id
+      `select p.*, coalesce(s.name, a.school_name, '') as school_name, coalesce(a.department, '') as department, coalesce(nullif(a.faculty_id, ''), p.employee_number, '') as faculty_id, coalesce(nullif(a.student_id, ''), p.student_number, '') as student_id, coalesce(a.course, '') as course, coalesce(a.year_level, '') as year_level from classassist.profiles p join classassist.accounts a on a.id = p.id left join classassist.schools s on s.id = p.school_id
        where a.id::text = $1`,
       [token],
     );

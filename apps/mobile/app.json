@@ -17,7 +17,17 @@
     "android": {
       "package": "com.raite.classassist"
     },
-    "plugins": ["expo-secure-store", "expo-status-bar"],
+    "plugins": [
+      "expo-secure-store",
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Aider to choose a profile photo from your library.",
+          "microphonePermission": false
+        }
+      ]
+    ],
     "extra": {
       "description": "Room for learning. Teacher and student mobile companion."
     }

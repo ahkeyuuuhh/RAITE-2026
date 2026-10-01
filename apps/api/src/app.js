@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
+import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { pool, one, transaction, lockPeople, audit } from './db.js';
 import { authenticate, role, classAccess } from './auth.js';
@@ -51,6 +52,48 @@ const route = (fn) => async (req, res, next) => {
     next(e);
   }
 };
+const PROFILE_AVATAR_BUCKET = 'profile-avatars';
+const PROFILE_AVATAR_MAX_BYTES = 4 * 1024 * 1024;
+const PROFILE_AVATAR_TYPES = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+  ['image/heic', 'heic'],
+  ['image/heif', 'heif'],
+]);
+let profileAvatarStorage;
+function getProfileAvatarStorage() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) fail('SETUP_REQUIRED', 'Profile photo storage is not configured.', 503);
+  return (profileAvatarStorage ??= createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  }));
+}
+function avatarObjectPathFromUrl(value, userId, supabaseUrl) {
+  try {
+    const url = new URL(value);
+    if (url.origin !== new URL(supabaseUrl).origin) return undefined;
+    const prefix = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
+    if (!url.pathname.startsWith(prefix)) return undefined;
+    const path = decodeURIComponent(url.pathname.slice(prefix.length));
+    return path.startsWith(`${userId}/`) && !path.includes('..') ? path : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function matchesImageType(buffer, mimeType) {
+  if (mimeType === 'image/jpeg') return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (mimeType === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (mimeType === 'image/webp') return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  if (mimeType === 'image/heic' || mimeType === 'image/heif') {
+    return buffer.length >= 12 && buffer.toString('ascii', 4, 8) === 'ftyp';
+  }
+  return false;
+}
 const id = (req) => uuid.parse(req.params.id);
 app.get(
   '/api/health',
@@ -262,6 +305,144 @@ app.use('/api', authenticate);
 app.get(
   '/api/me',
   route(async (req) => req.user),
+);
+app.patch(
+  '/api/me',
+  route(async (req) => {
+    const body = z
+      .object({
+        name: z.string().trim().min(1).max(120).optional(),
+        school: z.string().trim().min(2).max(160).optional(),
+        department: z.string().trim().max(160).optional(),
+        facultyId: z.string().trim().max(80).optional(),
+      })
+      .parse(req.body);
+
+    return await transaction(async (db) => {
+      let schoolId = req.user.school_id;
+      let schoolName = req.user.school_name || 'University of the Philippines Diliman';
+
+      if (body.school) {
+        const existingSchool = await one(
+          db,
+          'select id, name from classassist.schools where lower(name)=lower($1) order by created_at limit 1',
+          [body.school],
+        );
+        if (existingSchool) {
+          schoolId = existingSchool.id;
+          schoolName = existingSchool.name;
+        } else {
+          const newSchool = await one(
+            db,
+            'insert into classassist.schools(name) values($1) returning id, name',
+            [body.school],
+          );
+          schoolId = newSchool.id;
+          schoolName = newSchool.name;
+        }
+      }
+
+      const nextName = body.name ?? req.user.name;
+      const nextDept = body.department !== undefined ? body.department : (req.user.department || '');
+      const nextFacultyId = body.facultyId !== undefined ? body.facultyId : (req.user.faculty_id || req.user.employee_number || '');
+
+      await db.query(
+        `update classassist.accounts
+         set name = coalesce($1, name),
+             school_id = coalesce($2, school_id),
+             school_name = coalesce($3, school_name),
+             department = coalesce($4, department),
+             faculty_id = coalesce($5, faculty_id),
+             updated_at = now()
+         where id = $6`,
+        [nextName, schoolId, schoolName, nextDept, nextFacultyId, req.user.id],
+      );
+
+      const updatedProfile = await one(
+        db,
+        `update classassist.profiles
+         set name = coalesce($1, name),
+             school_id = coalesce($2, school_id),
+             employee_number = nullif($3, ''),
+             updated_at = now()
+         where id = $4
+         returning *`,
+        [nextName, schoolId, nextFacultyId, req.user.id],
+      );
+
+      return {
+        ...updatedProfile,
+        school_name: schoolName,
+        department: nextDept,
+        faculty_id: nextFacultyId,
+      };
+    });
+  }),
+);
+app.put(
+  '/api/me/avatar',
+  rateLimit({ windowMs: 60000, limit: 8 }),
+  express.text({ type: 'text/plain', limit: '6mb' }),
+  route(async (req) => {
+    role(req.user, 'teacher');
+    const mimeType = req.get('x-image-mime-type')?.toLowerCase().trim() || '';
+    const extension = PROFILE_AVATAR_TYPES.get(mimeType);
+    const encoded = typeof req.body === 'string' ? req.body.trim() : '';
+    const maxEncodedLength = Math.ceil(PROFILE_AVATAR_MAX_BYTES / 3) * 4;
+    if (
+      !extension ||
+      !encoded ||
+      encoded.length > maxEncodedLength ||
+      encoded.length % 4 === 1 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)
+    ) {
+      fail('INVALID_IMAGE', 'Choose a JPG, PNG, WebP, or HEIF image under 4 MB.');
+    }
+
+    const image = Buffer.from(encoded, 'base64');
+    if (
+      image.length > PROFILE_AVATAR_MAX_BYTES ||
+      image.toString('base64').replace(/=+$/, '') !== encoded.replace(/=+$/, '') ||
+      !matchesImageType(image, mimeType)
+    ) {
+      fail('INVALID_IMAGE', 'Choose a valid JPG, PNG, WebP, or HEIF image under 4 MB.');
+    }
+
+    const storage = getProfileAvatarStorage();
+    const objectPath = `${req.user.id}/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await storage.storage
+      .from(PROFILE_AVATAR_BUCKET)
+      .upload(objectPath, image, {
+        cacheControl: '31536000',
+        contentType: mimeType,
+        upsert: false,
+      });
+    if (uploadError) {
+      fail('AVATAR_UPLOAD_FAILED', 'Could not upload your photo. Please try again.', 503);
+    }
+
+    const publicUrl = storage.storage.from(PROFILE_AVATAR_BUCKET).getPublicUrl(objectPath).data.publicUrl;
+    let saved;
+    try {
+      saved = await one(
+        pool,
+        `update classassist.profiles set avatar_url=$1,updated_at=now()
+         where id=$2 and role='teacher' returning avatar_url`,
+        [publicUrl, req.user.id],
+      );
+      if (!saved) fail('NOT_FOUND', 'Professor profile not found.', 404);
+    } catch (error) {
+      await storage.storage.from(PROFILE_AVATAR_BUCKET).remove([objectPath]).catch(() => {});
+      throw error;
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const previousPath = avatarObjectPathFromUrl(req.user.avatar_url, req.user.id, supabaseUrl);
+    if (previousPath) {
+      await storage.storage.from(PROFILE_AVATAR_BUCKET).remove([previousPath]).catch(() => {});
+    }
+    return { ...req.user, avatar_url: saved.avatar_url };
+  }),
 );
 app.get(
   '/api/classes',
