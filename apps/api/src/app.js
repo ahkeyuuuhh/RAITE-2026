@@ -28,7 +28,7 @@ import {
   startAttempt,
   saveAttempt,
 } from './assessments.js';
-import { aiReady, parseIntent } from './ai.js';
+import { aiReady, parseIntent, geminiChat } from './ai.js';
 import { sampleLesson } from './fixtures.js';
 export const app = express();
 app.disable('x-powered-by');
@@ -58,13 +58,46 @@ app.get(
 app.get(
   '/api/config',
   route(async () => ({
-    supabaseUrl: process.env.SUPABASE_PUBLIC_URL || process.env.SUPABASE_URL || '',
-    supabaseKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
+    supabaseUrl:
+      process.env.SUPABASE_PUBLIC_URL ||
+      process.env.SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      '',
+    supabaseKey:
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      '',
     aiConfigured: aiReady(),
     sampleEnabled:
       process.env.ALLOW_SAMPLE_DRAFTS === 'true' && process.env.NODE_ENV !== 'production',
     timezone: 'Asia/Manila',
   })),
+);
+app.get(
+  '/api/ai/status',
+  route(async () => ({
+    live: Boolean(process.env.GEMINI_API_KEY || process.env.AI_API_KEY),
+    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+  })),
+);
+app.post(
+  '/api/ai/chat',
+  route(async (req) => {
+    const bodySchema = z.object({
+      message: z.string().min(1).max(4000),
+      history: z
+        .array(
+          z.object({
+            role: z.enum(['user', 'assistant']),
+            content: z.string().max(4000),
+          }),
+        )
+        .optional()
+        .default([]),
+    });
+    const parsed = bodySchema.parse(req.body);
+    return await geminiChat(parsed.message, parsed.history);
+  }),
 );
 app.use('/api', authenticate);
 app.get(

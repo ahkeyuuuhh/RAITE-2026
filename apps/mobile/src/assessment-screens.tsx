@@ -90,7 +90,7 @@ export function CreateDraft({ classId }: { classId?: string }) {
         <Field label="Close at" value={closes} onChangeText={setCloses} />
         <Button
           title={sample ? 'Create saved sample draft' : 'Generate five-question draft'}
-          disabled={!selected || lesson.trim().length < 60 || (!sample && !config.aiConfigured)}
+          disabled={!selected || lesson.trim().length < 60 || (!sample && !config?.aiConfigured)}
           busy={busy}
           onPress={() =>
             act(async () => {
@@ -109,7 +109,7 @@ export function CreateDraft({ classId }: { classId?: string }) {
             }, 'Draft ready for your review.')
           }
         />
-        {!config.aiConfigured && !sample && (
+        {!config?.aiConfigured && !sample && (
           <Body>
             Live AI is not connected. You can explore the review workflow with the labeled saved
             sample.

@@ -38,11 +38,16 @@ import {
   Classes,
   Consultations,
   Home,
+  TeacherHomeScreen,
+  StudentHomeScreen,
+  StudentReviewScreen,
+  StudentAgentScreen,
   Jobs,
   Notifications,
   Roster,
 } from './screens';
 import { CreateDraft, Quiz, Review, Submissions } from './assessment-screens';
+import { AuthFlow } from './auth-flow';
 import type { Assessment, Config, Notice, Profile } from './types';
 
 export default function App() {
@@ -53,8 +58,16 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+const DEFAULT_FALLBACK_CONFIG: Config = {
+  supabaseUrl: 'https://alazisaoccfhwnepapci.supabase.co',
+  supabaseKey: 'sb_publishable_0btsdOthImc4TkeBkqhALA_g0MFGNvw',
+  aiConfigured: true,
+  sampleEnabled: true,
+  timezone: 'Asia/Manila',
+};
+
 function Root() {
-  const [config, setConfig] = useState<Config>(),
+  const [config, setConfig] = useState<Config>(DEFAULT_FALLBACK_CONFIG),
     [profile, setProfile] = useState<Profile>(),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
@@ -76,11 +89,16 @@ function Root() {
     bootstrap();
   }, [bootstrap]);
   useEffect(() => {
-    if (!config) return;
-    const { data } = authClient().auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) setProfile(undefined);
-    });
-    return () => data.subscription.unsubscribe();
+    try {
+      const client = authClient();
+      if (!client?.auth) return;
+      const { data } = client.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT' || !session) setProfile(undefined);
+      });
+      return () => data?.subscription?.unsubscribe();
+    } catch {
+      // Ignored in dev / offline mode
+    }
   }, [config]);
   if (loading)
     return (
@@ -91,156 +109,41 @@ function Root() {
       </SafeAreaView>
     );
   if (!profile)
-    return <Login config={config} error={error} retry={bootstrap} onSignedIn={setProfile} />;
+    return <AuthFlow config={config || DEFAULT_FALLBACK_CONFIG} error={error} retry={bootstrap} onSignedIn={setProfile} />;
   return (
     <Workspace
-      config={config!}
+      config={config || DEFAULT_FALLBACK_CONFIG}
       profile={profile}
       onLogout={async () => {
-        const { error } = await authClient().auth.signOut({ scope: 'local' });
-        if (error) throw error;
+        try {
+          const client = authClient();
+          if (client?.auth) {
+            await client.auth.signOut({ scope: 'local' });
+          }
+        } catch {
+          // Ignored
+        }
         setProfile(undefined);
       }}
     />
   );
 }
-function Login({
-  config,
-  error: initialError,
-  retry,
-  onSignedIn,
-}: {
-  config?: Config;
-  error: string;
-  retry: () => void;
-  onSignedIn: (p: Profile) => void;
-}) {
-  const [email, setEmail] = useState(''),
-    [password, setPassword] = useState(''),
-    [error, setError] = useState(initialError),
-    [busy, setBusy] = useState(false);
-  return (
-    <SafeAreaView style={styles.root}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[
-            styles.content,
-            { flexGrow: 1, justifyContent: 'center', paddingBottom: 40 },
-          ]}
-        >
-          <View style={{ alignItems: 'center', gap: 12, marginBottom: 30 }}>
-            <View style={styles.logo}>
-              <Icon name="sparkles" size={38} color="#fff" />
-            </View>
-            <Text style={{ fontSize: 17, fontWeight: '600', letterSpacing: -0.4 }}>
-              ClassAssist
-            </Text>
-          </View>
-          <Text style={styles.hero}>Good things{'\n'}start with a question.</Text>
-          <Text style={[s.body, { textAlign: 'center', marginVertical: 18 }]}>
-            A little less admin. A little more learning.{'\n'}Your classroom companion, wherever you
-            are.
-          </Text>
-          <Card>
-            <Heading>Welcome back</Heading>
-            <Body>Sign in with your school’s assigned account.</Body>
-            {error && (
-              <View style={s.error}>
-                <Text accessibilityRole="alert" style={s.errorText}>
-                  {error}
-                </Text>
-              </View>
-            )}
-            {!config ? (
-              <Button title="Reconnect to server" onPress={retry} />
-            ) : (
-              <>
-                <Field
-                  label="Email address"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                />
-                <Field
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoComplete="current-password"
-                />
-                <Button
-                  title="Sign in"
-                  busy={busy}
-                  disabled={!email || !password}
-                  onPress={async () => {
-                    setBusy(true);
-                    setError('');
-                    try {
-                      const { error } = await authClient().auth.signInWithPassword({
-                        email: email.trim(),
-                        password,
-                      });
-                      if (error) throw error;
-                      const p = await request<Profile>('/me');
-                      onSignedIn(p);
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                />
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Button
-                      title="Demo Teacher"
-                      secondary
-                      onPress={() => {
-                        setEmail('teacher@classassist.demo');
-                        setPassword('ClassAssist-demo-2026!');
-                      }}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Button
-                      title="Demo Student"
-                      secondary
-                      onPress={() => {
-                        setEmail('student@classassist.demo');
-                        setPassword('ClassAssist-demo-2026!');
-                      }}
-                    />
-                  </View>
-                </View>
-              </>
-            )}
-            <Text style={s.caption}>
-              Teacher access is assigned by your administrator. An enrollment code only joins a
-              class.
-            </Text>
-          </Card>
-          <Text style={[s.caption, { textAlign: 'center', marginTop: 24 }]}>
-            Thoughtfully made for teachers & students.
-          </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
-const tabs: { key: string; label: string; icon: IconName }[] = [
-  { key: 'home', label: 'Today', icon: 'house.fill' },
-  { key: 'classes', label: 'Classes', icon: 'person.2.fill' },
-  { key: 'assistant', label: 'Assistant', icon: 'sparkles' },
+const studentTabs: { key: string; label: string; icon: IconName }[] = [
+  { key: 'home', label: 'Home', icon: 'house.fill' },
+  { key: 'review', label: 'Review', icon: 'doc.text' },
+  { key: 'agent', label: 'Agent', icon: 'plus' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar' },
-  { key: 'more', label: 'You', icon: 'gearshape' },
+  { key: 'profile', label: 'Profile', icon: 'person.fill' },
 ];
+
+const teacherTabs: { key: string; label: string; icon: IconName }[] = [
+  { key: 'home', label: 'Home', icon: 'house.fill' },
+  { key: 'classes', label: 'Classes', icon: 'person.2.fill' },
+  { key: 'assistant', label: 'Studio', icon: 'sparkles' },
+  { key: 'calendar', label: 'Calendar', icon: 'calendar' },
+  { key: 'profile', label: 'Profile', icon: 'person.fill' },
+];
+
 function Workspace({
   profile,
   config,
@@ -250,6 +153,7 @@ function Workspace({
   config: Config;
   onLogout: () => Promise<void>;
 }) {
+  const tabs = profile.role === 'student' ? studentTabs : teacherTabs;
   const [tab, setTab] = useState('home'),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
@@ -298,25 +202,36 @@ function Workspace({
       )}
     </>
   );
-  const content = () =>
-    tab === 'home' ? (
-      <Home />
-    ) : tab === 'classes' ? (
-      <Classes />
-    ) : tab === 'assistant' ? (
-      profile.role === 'teacher' ? (
-        <TeacherStudio />
-      ) : (
-        <Consultations />
-      )
-    ) : tab === 'calendar' ? (
-      <Calendar />
-    ) : (
+  const content = () => {
+    if (tab === 'home') {
+      return profile.role === 'teacher' ? <TeacherHomeScreen /> : <StudentHomeScreen />;
+    }
+    if (tab === 'review') {
+      return <StudentReviewScreen />;
+    }
+    if (tab === 'agent') {
+      return <StudentAgentScreen onBack={() => setTab('home')} />;
+    }
+    if (tab === 'classes') {
+      return <Classes />;
+    }
+    if (tab === 'assistant') {
+      return profile.role === 'teacher' ? <TeacherStudio /> : <Consultations />;
+    }
+    if (tab === 'calendar') {
+      return <Calendar />;
+    }
+    return (
       <View style={s.stack}>
         <Card>
-          <Label>{profile.role}</Label>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Label>{profile.role === 'teacher' ? 'Faculty Member' : 'Student Scholar'}</Label>
+            <Pill tone={profile.role === 'teacher' ? 'green' : 'blue'}>
+              {profile.role === 'teacher' ? 'Teacher' : 'Student'}
+            </Pill>
+          </View>
           <Heading>{profile.name}</Heading>
-          <Body>Asia/Manila · School time zone</Body>
+          <Body>University of the Philippines Diliman · Asia/Manila</Body>
         </Card>
         <Card>
           <Row title="Your consultations" icon="calendar" onPress={() => open('book')} />
@@ -336,6 +251,7 @@ function Workspace({
         <Button title="Sign out" secondary busy={busy} onPress={() => act(onLogout)} />
       </View>
     );
+  };
   const modalContent = () => {
     if (!modal) return null;
     switch (modal.kind) {
@@ -383,60 +299,91 @@ function Workspace({
   return (
     <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
       <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-        <View style={styles.top}>
-          <View>
-            <Label>{profile.role === 'teacher' ? 'Teacher workspace' : 'Student workspace'}</Label>
-            <Text style={styles.title}>
-              {tab === 'home'
-                ? `Hello, ${profile.name
-                    .split(' ')
-                    .slice(0, profile.role === 'teacher' ? 2 : 1)
-                    .join(' ')}.`
-                : tabs.find((t) => t.key === tab)?.label}
-            </Text>
+        {tab !== 'agent' && (
+          <View style={styles.top}>
+            <View>
+              <Label>{profile.role === 'teacher' ? 'Teacher workspace' : 'Student workspace'}</Label>
+              <Text style={styles.title}>
+                {tab === 'home'
+                  ? `Hello, ${profile.name
+                      .split(' ')
+                      .slice(0, profile.role === 'teacher' ? 2 : 1)
+                      .join(' ')}.`
+                  : tabs.find((t) => t.key === tab)?.label}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open notifications"
+              onPress={() => open('notifications')}
+              style={styles.bell}
+            >
+              <Icon name="bell" />
+            </Pressable>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open notifications"
-            onPress={() => open('notifications')}
-            style={styles.bell}
+        )}
+        {tab === 'agent' ? (
+          <View style={{ flex: 1, paddingBottom: Math.max(insets.bottom, 12) }}>
+            {notice}
+            {content()}
+          </View>
+        ) : (
+          <ScrollView
+            key={tab}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}
+            contentContainerStyle={[styles.content, { paddingBottom: 110 + insets.bottom }]}
           >
-            <Icon name="bell" />
-          </Pressable>
-        </View>
-        <ScrollView
-          key={tab}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}
-          contentContainerStyle={[styles.content, { paddingBottom: 110 + insets.bottom }]}
-        >
-          {notice}
-          {content()}
-        </ScrollView>
-        <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 12) }]}>
-          <BlurView intensity={70} tint="light" style={styles.dock}>
-            {tabs.map((t) => (
-              <Pressable
-                key={t.key}
-                accessibilityRole="tab"
-                accessibilityLabel={t.label}
-                accessibilityState={{ selected: tab === t.key }}
-                onPress={() => {
-                  setTab(t.key);
-                  setMessage('');
-                  setError('');
-                  refresh();
-                }}
-                style={[styles.tab, tab === t.key && styles.activeTab]}
-              >
-                <Icon name={t.icon} size={21} color={tab === t.key ? colors.ink : colors.muted} />
-                <Text style={[styles.tabLabel, tab === t.key && { color: colors.ink }]}>
-                  {t.label}
-                </Text>
-              </Pressable>
-            ))}
+            {notice}
+            {content()}
+          </ScrollView>
+        )}
+        {tab !== 'agent' && (
+          <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 12) }]}>
+            <BlurView intensity={70} tint="light" style={styles.dock}>
+            {tabs.map((t) => {
+              const isSelected = tab === t.key;
+              const isAgent = t.key === 'agent';
+              return (
+                <Pressable
+                  key={t.key}
+                  accessibilityRole="tab"
+                  accessibilityLabel={t.label}
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => {
+                    setTab(t.key);
+                    setMessage('');
+                    setError('');
+                    refresh();
+                  }}
+                  style={[
+                    styles.tab,
+                    isSelected && !isAgent && styles.activeTab,
+                    isAgent && styles.agentTab,
+                  ]}
+                >
+                  {isAgent ? (
+                    <View style={[styles.agentPlusBadge, isSelected && styles.agentPlusBadgeActive]}>
+                      <Icon name="plus" size={17} color="#FFFFFF" />
+                    </View>
+                  ) : (
+                    <Icon name={t.icon} size={21} color={isSelected ? colors.ink : colors.muted} />
+                  )}
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      isSelected && { color: colors.ink, fontWeight: '700' },
+                      isAgent && isSelected && { color: colors.blue },
+                    ]}
+                  >
+                    {t.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </BlurView>
         </View>
+        )}
         <Modal
           visible={Boolean(modal)}
           animationType="slide"
@@ -558,10 +505,31 @@ const styles = StyleSheet.create({
     minHeight: 58,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     borderRadius: 100,
   },
   activeTab: { backgroundColor: '#E8E8ED' },
+  agentTab: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agentPlusBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#6366F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  agentPlusBadgeActive: {
+    backgroundColor: colors.blue,
+    transform: [{ scale: 1.08 }],
+  },
   tabLabel: { fontSize: 10, fontWeight: '600', color: colors.muted },
   modalTop: {
     flexDirection: 'row',

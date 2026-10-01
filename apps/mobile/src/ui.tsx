@@ -9,9 +9,10 @@ import {
   ActivityIndicator,
   type TextInputProps,
   type ViewStyle,
+  type TextStyle,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 export const colors = {
   bg: '#F2F2F7',
   ink: '#1C1C1E',
@@ -35,8 +36,32 @@ export type IconName =
   | 'doc.text'
   | 'gearshape'
   | 'arrow.left'
-  | 'xmark';
+  | 'xmark'
+  | 'graduationcap.fill'
+  | 'person.fill'
+  | 'envelope.fill'
+  | 'lock.fill'
+  | 'shield.fill'
+  | 'arrow.right'
+  | 'building.columns.fill'
+  | 'checkmark'
+  | 'doc.on.doc'
+  | 'arrow.counterclockwise'
+  | 'questionmark.circle'
+  | 'line.2.horizontal'
+  | 'mic'
+  | 'waveform'
+  | 'chevron.down'
+  | 'pencil';
 const paths: Record<IconName, string> = {
+  'line.2.horizontal': 'M4 9h16M4 15h16',
+  mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm5 7a5 5 0 0 1-10 0M12 17v4m-4 0h8',
+  waveform: 'M7 10v4M12 5v14M17 9v6',
+  'chevron.down': 'm6 9 6 6 6-6',
+  pencil: 'M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z',
+  'doc.on.doc': 'M8 8h10v12H8zM6 16H4V4h12v2',
+  'arrow.counterclockwise': 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5',
+  'questionmark.circle': 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm0-6h.01M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3',
   'house.fill': 'M3 10.5 12 3l9 7.5M5 9v12h5v-7h4v7h5V9',
   calendar: 'M5 3v4m14-4v4M3 10h18M7 14h2m6 0h2M7 18h2m6 0h2',
   'person.2.fill':
@@ -53,9 +78,31 @@ const paths: Record<IconName, string> = {
     'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',
   'arrow.left': 'M20 12H4m6-6-6 6 6 6',
   xmark: 'm6 6 12 12M6 18 18 6',
+  'graduationcap.fill': 'M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5',
+  'person.fill':
+    'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+  'envelope.fill':
+    'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm2 0 7 5 7-5',
+  'lock.fill':
+    'M7 11V7a5 5 0 0 1 10 0v4m-12 0h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z',
+  'shield.fill': 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  'arrow.right': 'M4 12h16m-6-6 6 6-6 6',
+  'building.columns.fill': 'M4 10h16M4 14h16M4 18h16M2 22h20M12 2 2 7h20z',
+  checkmark: 'm5 12 5 5L20 7',
 };
 // iOS uses genuine system SF Symbols. Android uses small original vector fallbacks
 // following the same monochrome visual language (no Lucide/Material font dependency).
+const sfSymbolMap: Partial<Record<IconName, any>> = {
+  'line.2.horizontal': 'line.3.horizontal',
+  mic: 'mic',
+  waveform: 'waveform',
+  'chevron.down': 'chevron.down',
+  pencil: 'pencil',
+  'doc.on.doc': 'doc.on.doc',
+  'arrow.counterclockwise': 'arrow.counterclockwise',
+  'questionmark.circle': 'questionmark.circle',
+};
+
 export function Icon({
   name,
   size = 22,
@@ -67,7 +114,12 @@ export function Icon({
 }) {
   if (Platform.OS === 'ios')
     return (
-      <SymbolView name={name} tintColor={color} size={size} style={{ width: size, height: size }} />
+      <SymbolView
+        name={sfSymbolMap[name] || name}
+        tintColor={color}
+        size={size}
+        style={{ width: size, height: size }}
+      />
     );
   return (
     <Svg
@@ -92,11 +144,23 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
 export function Label({ children }: { children: React.ReactNode }) {
   return <Text style={s.label}>{children}</Text>;
 }
-export function Heading({ children }: { children: React.ReactNode }) {
-  return <Text style={s.heading}>{children}</Text>;
+export function Heading({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
+  return <Text style={[s.heading, style]}>{children}</Text>;
 }
-export function Body({ children }: { children: React.ReactNode }) {
-  return <Text style={s.body}>{children}</Text>;
+export function Body({
+  children,
+  style,
+  numberOfLines,
+}: {
+  children: React.ReactNode;
+  style?: TextStyle;
+  numberOfLines?: number;
+}) {
+  return (
+    <Text numberOfLines={numberOfLines} style={[s.body, style]}>
+      {children}
+    </Text>
+  );
 }
 export function Pill({
   children,
@@ -305,3 +369,22 @@ export const s = StyleSheet.create({
   success: { backgroundColor: '#EAF5EF', padding: 15, borderRadius: 16 },
   successText: { color: colors.green, fontSize: 14, lineHeight: 21 },
 });
+
+export function GeminiStar({ size = 48 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <Defs>
+        <LinearGradient id="geminiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#4285F4" />
+          <Stop offset="35%" stopColor="#9B72CF" />
+          <Stop offset="70%" stopColor="#D96570" />
+          <Stop offset="100%" stopColor="#F4B400" />
+        </LinearGradient>
+      </Defs>
+      <Path
+        d="M24 2 C24 14.15 14.15 24 2 24 C14.15 24 24 33.85 24 46 C24 33.85 33.85 24 46 24 C33.85 24 24 14.15 24 2 Z"
+        fill="url(#geminiGrad)"
+      />
+    </Svg>
+  );
+}

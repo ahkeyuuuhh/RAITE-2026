@@ -1,6 +1,14 @@
 import pg from 'pg';
+
+const dbUrl = process.env.DATABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URI || '';
+const isLocal =
+  !dbUrl ||
+  dbUrl.includes('127.0.0.1') ||
+  dbUrl.includes('localhost');
+
 export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
+  ssl: isLocal ? false : { rejectUnauthorized: false },
   max: 10,
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,

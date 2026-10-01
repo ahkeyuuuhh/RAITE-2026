@@ -3,11 +3,13 @@ import { pool, one } from './db.js';
 import { fail } from './domain.js';
 let authClient;
 export function supabaseAuth() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_PUBLISHABLE_KEY)
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key)
     fail('SETUP_REQUIRED', 'Configure Supabase to sign in.', 503);
   return (authClient ??= createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_PUBLISHABLE_KEY,
+    url,
+    key,
     { auth: { persistSession: false, autoRefreshToken: false } },
   ));
 }
