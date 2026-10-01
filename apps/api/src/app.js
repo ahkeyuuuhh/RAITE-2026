@@ -28,7 +28,7 @@ import {
   startAttempt,
   saveAttempt,
 } from './assessments.js';
-import { aiReady, parseIntent, geminiChat } from './ai.js';
+import { aiReady, parseIntent, geminiChat, summarizeDocument, generatePodcastBite } from './ai.js';
 import { sampleLesson } from './fixtures.js';
 export const app = express();
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -103,11 +103,37 @@ app.post(
         .object({
           data: z.string(),
           mimeType: z.string(),
+          name: z.string().optional(),
         })
         .optional(),
     });
     const parsed = bodySchema.parse(req.body);
     return await geminiChat(parsed.message, parsed.history, parsed.image);
+  }),
+);
+app.post(
+  '/api/ai/summarize',
+  route(async (req) => {
+    const bodySchema = z.object({
+      fileData: z.string().optional(),
+      fileName: z.string().default('document'),
+      mimeType: z.string().default('application/octet-stream'),
+      summaryType: z.enum(['executive', 'study_notes', 'exam_prep']).default('study_notes'),
+    });
+    const parsed = bodySchema.parse(req.body);
+    return await summarizeDocument(parsed);
+  }),
+);
+app.post(
+  '/api/ai/podcast',
+  route(async (req) => {
+    const bodySchema = z.object({
+      topic: z.string().min(1).max(20000),
+      format: z.enum(['duo', 'solo', 'speed']).default('duo'),
+      style: z.string().default('energetic'),
+    });
+    const parsed = bodySchema.parse(req.body);
+    return await generatePodcastBite(parsed.topic, parsed.format, parsed.style);
   }),
 );
 app.post(

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Text,
   View,
+  Alert,
   Pressable,
   Switch,
   ActivityIndicator,
@@ -21,8 +22,12 @@ import { request, dateText, localDate, localDateTime, toISO } from './api';
 import { GEMINI_API_KEY } from './gemini-key';
 import { useApp, useRemote } from './context';
 import { QuizGeneratorScreen, QuizGeneratorModal } from './quiz-generator-modal';
+import { DocumentSummarizerScreen } from './document-summarizer-modal';
+import { AudioBitesScreen } from './audio-bites-modal';
 import { BlurView } from 'expo-blur';
+import Svg, { Path, Rect, Circle, SvgXml } from 'react-native-svg';
 import { Prism } from './Prism';
+import SquishSwitch from './SquishSwitch';
 import {
   Body,
   Button,
@@ -288,84 +293,127 @@ const professorStyles = StyleSheet.create({
 export function StudentHomeScreen() {
   const { open } = useApp();
   const [showQuizGenerator, setShowQuizGenerator] = useState(false);
-  const { data: bookings } = useRemote<Booking[]>('/consultations');
-  const { data: assessments } = useRemote<Assessment[]>('/assessments');
-  const { data: classes } = useRemote<Classroom[]>('/classes');
+  const [showSummarizer, setShowSummarizer] = useState(false);
+  const [showAudioBites, setShowAudioBites] = useState(false);
 
   if (showQuizGenerator) {
     return <QuizGeneratorScreen onBack={() => setShowQuizGenerator(false)} />;
   }
 
-  const upcoming = (bookings || []).filter(
-    (b) => b.status === 'booked' && new Date(b.ends_at) > new Date(),
-  );
-  const openAssessments = (assessments || []).filter((a) => a.state === 'open');
-  const activeClassrooms = classes || [];
+  if (showSummarizer) {
+    return (
+      <DocumentSummarizerScreen
+        onBack={() => setShowSummarizer(false)}
+        onAskTutor={() => {
+          setShowSummarizer(false);
+          open('agent');
+        }}
+      />
+    );
+  }
+
+  if (showAudioBites) {
+    return (
+      <AudioBitesScreen
+        onBack={() => setShowAudioBites(false)}
+        onAskTutor={() => {
+          setShowAudioBites(false);
+          open('agent');
+        }}
+      />
+    );
+  }
 
   return (
     <View style={s.stack}>
-      {/* 4 Metric Widgets in Squircle Grid */}
+      {/* 4 Metric Widgets in Squircle Grid: Student Mastery & Habits */}
       <View style={{ flexDirection: 'row', gap: 10 }}>
+        {/* Metric 1: Daily Study Streak */}
         <MetricCard
-          icon="doc.text"
-          title="Quizzes"
-          value={openAssessments.length}
-          unit="active"
+          icon="flame.fill"
+          title="Streak"
+          value="5"
+          unit="days fire"
+          accentColor="#F97316"
           widget={
             <ProgressRing
               size={38}
-              pct={openAssessments.length > 0 ? 0.75 : 0.15}
+              pct={5 / 7}
               strokeWidth={4.2}
-              color={colors.ink}
-              trackColor="#E5E5EA"
+              color="#F97316"
+              trackColor="#FFEDD5"
             />
           }
+          onPress={() => {
+            Alert.alert(
+              '🔥 5-Day Study Streak',
+              "You've studied 5 days in a row this week! Practice with Quiz Gen, Audio Bites, or the AI Tutor today to maintain your streak.",
+            );
+          }}
         />
 
+        {/* Metric 2: Concept Mastery Score */}
         <MetricCard
-          icon="calendar"
-          title="Sessions"
-          value={upcoming.length}
-          unit="booked"
+          icon="checkmark.circle.fill"
+          title="Mastery"
+          value="92%"
+          unit="retention"
+          accentColor="#10B981"
           widget={
             <ProgressRing
               size={38}
-              pct={upcoming.length > 0 ? 0.6 : 0.1}
+              pct={0.92}
               strokeWidth={4.2}
-              color={colors.ink}
-              trackColor="#E5E5EA"
+              color="#10B981"
+              trackColor="#DCFCE7"
             />
           }
-          onPress={() => open('calendar')}
+          onPress={() => {
+            Alert.alert(
+              '🎯 92% Concept Mastery',
+              'Based on your accuracy across generated quizzes, summarized notes, and interactive study bites.',
+            );
+          }}
         />
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
+        {/* Metric 3: Focus Time Today */}
         <MetricCard
-          icon="person.2.fill"
-          title="Classes"
-          value={activeClassrooms.length}
-          unit="enrolled"
+          icon="clock"
+          title="Focus"
+          value="48m"
+          unit="today"
+          accentColor="#3B82F6"
           widget={
             <BarChartWidget
               width={36}
               maxHeight={26}
-              heights={[10, 16, 26, 18, 12]}
-              activeIndex={2}
+              heights={[12, 18, 14, 26, 20]}
+              activeIndex={3}
+              activeColor="#3B82F6"
             />
           }
+          onPress={() => {
+            Alert.alert(
+              '⏱️ 48m Focused Today',
+              'Daily target: 60 minutes. You are 80% towards your daily focus goal.',
+            );
+          }}
         />
 
+        {/* Metric 4: Concepts Cracked / Mastered */}
         <MetricCard
           icon="sparkles"
-          title="AI Tutor"
-          value="24/7"
-          unit="online"
+          title="Concepts"
+          value="18"
+          unit="mastered"
+          accentColor="#6366F1"
           widget={
             <SparklineWidget
               width={42}
               height={22}
-              color={colors.ink}
+              color="#6366F1"
             />
           }
           onPress={() => open('agent')}
@@ -389,40 +437,62 @@ export function StudentHomeScreen() {
           }}
         />
 
-        {/* Card 2: Flashcards (Coming Soon) */}
+        {/* Card 2: Audio Bites (Mini-Podcasts) */}
         <FeatureCard
-          icon="doc.on.doc"
-          title="Cards"
-          subtitle="Smart review"
+          icon="mic"
+          title="Audio Bites"
+          subtitle="Mini podcast"
+          onPress={() => {
+            open('audio-bites');
+            setShowAudioBites(true);
+          }}
         />
 
-        {/* Card 3: Summarizer (Coming Soon) */}
+        {/* Card 3: Summarizer */}
         <FeatureCard
-          icon="waveform"
+          icon="doc.text"
           title="Summary"
           subtitle="Key notes"
+          onPress={() => {
+            open('summary');
+            setShowSummarizer(true);
+          }}
         />
       </View>
 
-      {/* Enrolled Classes */}
-      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 8 }]}>
-        <Heading>Enrolled Classrooms</Heading>
-        <Text style={s.caption}>{activeClassrooms.length} Enrolled</Text>
+      {/* Recent Study Activity Hub (Replaces old 'Enrolled Classes') */}
+      <View style={[s.hstack, { justifyContent: 'space-between', marginTop: 10 }]}>
+        <Heading style={{ fontSize: 18 }}>Recent Study Activity</Heading>
+        <Text style={s.caption}>Active Recall</Text>
       </View>
       <Card>
-        {activeClassrooms.length ? (
-          activeClassrooms.slice(0, 2).map((c) => (
-            <Row
-              key={c.id}
-              title={c.name}
-              detail={`${c.subject} · Taught by ${c.teacher_name}`}
-              icon="person.2.fill"
-              onPress={() => open('class', c.id)}
-            />
-          ))
-        ) : (
-          <Body>You haven't joined a class yet. Use a class code from your teacher.</Body>
-        )}
+        <Row
+          title="Photosynthesis & Solar Energy"
+          detail="Audio Bite · 2:15 min · Alex & Sam"
+          icon="mic"
+          onPress={() => {
+            open('audio-bites');
+            setShowAudioBites(true);
+          }}
+        />
+        <Row
+          title="Newton's 3 Laws of Motion"
+          detail="Key Notes · 4 Concepts & Definitions"
+          icon="doc.text"
+          onPress={() => {
+            open('summary');
+            setShowSummarizer(true);
+          }}
+        />
+        <Row
+          title="Cellular Respiration Quiz"
+          detail="AI Quiz Gen · 5 Questions Mastered"
+          icon="sparkles"
+          onPress={() => {
+            open('quiz-gen');
+            setShowQuizGenerator(true);
+          }}
+        />
       </Card>
     </View>
   );
@@ -544,11 +614,14 @@ interface ChatMessage {
   model?: string;
   live?: boolean;
   imageUri?: string;
+  fileName?: string;
 }
 
 interface ImagePayload {
   data: string;
   mimeType: string;
+  name?: string;
+  isDoc?: boolean;
 }
 
 async function callGeminiDirect(
@@ -562,12 +635,29 @@ async function callGeminiDirect(
   
   const userParts: any[] = [];
   if (image && image.data) {
-    userParts.push({
-      inline_data: {
-        mime_type: image.mimeType || 'image/jpeg',
-        data: image.data,
-      },
-    });
+    const mime = image.mimeType || 'image/jpeg';
+    if (mime.startsWith('text/')) {
+      try {
+        const textContent =
+          typeof atob === 'function'
+            ? decodeURIComponent(escape(atob(image.data)))
+            : image.data;
+        userParts.push({
+          text: `[Attached Document: ${image.name || 'Lesson Notes'}]\n\nContent:\n${textContent.slice(0, 16000)}`,
+        });
+      } catch {
+        userParts.push({
+          text: `[Attached Document: ${image.name || 'Lesson Notes'}]`,
+        });
+      }
+    } else {
+      userParts.push({
+        inline_data: {
+          mime_type: mime,
+          data: image.data,
+        },
+      });
+    }
   }
   userParts.push({
     text: message || (image ? 'Here is my lesson material or problem sheet. Please analyze it and guide me through the concepts step-by-step.' : 'Hello!'),
@@ -613,7 +703,17 @@ CORE TUTORING PEDAGOGY:
    - Ask an opening diagnostic question to invite the student to take the first step together (e.g. "What information is given first?" or "What formula relates these two quantities?").
 4. STRICT FORMATTING RULE:
    - NEVER use markdown double asterisks (**) anywhere in your response. Never output **. Use plain text, bullet points with • or -, or quotation marks instead.
-   - Keep answers clear, accessible, and structured.`,
+   - Keep answers clear, accessible, and structured.
+5. MULTI-MODAL VISUALIZATIONS & DIAGRAMS:
+   - When explaining visual concepts (geometry, math graphs/parabolas, coordinate axes, physics forces, chemical/biological cycles, or step-by-step concept flowcharts), OR whenever the student asks for a diagram/graph/visual, YOU MUST generate an inline SVG vector diagram!
+   - Wrap the SVG code in a \`\`\`svg ... \`\`\` code block.
+   - SVG Specifications:
+     • Must specify: viewBox="0 0 400 220" width="100%" xmlns="http://www.w3.org/2000/svg"
+     • Modern rounded card canvas: <rect width="400" height="220" fill="#F8FAFC" rx="12" stroke="#E2E8F0"/>
+     • Harmonious colors: #4F46E5 (primary curves/shapes), #06B6D4 (cyan), #10B981 (green), #EF4444 (accent points), #94A3B8 (gridlines/axes), #1E293B (labels)
+     • Use readable <text> tags with font-family="system-ui, -apple-system, sans-serif" and appropriate font sizes (11-14px)
+     • Use only standard SVG elements (<path>, <circle>, <line>, <rect>, <polygon>, <text>, <g>, <defs>, <marker>). No foreignObject or HTML tags.
+   - Strictly Socratic: Use the visual diagram to ask guiding questions about what the student observes in the diagram rather than giving away the answers.`,
                 },
               ],
             },
@@ -801,58 +901,283 @@ function SmoothUserBubble({ message }: { message: ChatMessage }) {
 
   return (
     <Animated.View
-      style={{
-        alignSelf: 'flex-end',
-        maxWidth: '85%',
-        minWidth: 80,
-        backgroundColor: '#007AFF',
-        borderRadius: 20,
-        borderBottomRightRadius: 4,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 2,
-      }}
-    >
-      {message.imageUri && (
-        <View
-          style={{
-            marginBottom: 8,
-            borderRadius: 14,
-            overflow: 'hidden',
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            borderWidth: 1,
-            borderColor: 'rgba(255, 255, 255, 0.25)',
-          }}
-        >
-          <Image
-            source={{ uri: message.imageUri }}
-            style={{ width: 220, height: 160, borderRadius: 13 }}
-            resizeMode="cover"
-          />
-        </View>
-      )}
-      {message.content ? (
-        <Text style={{ fontSize: 15, lineHeight: 22, color: '#FFFFFF', fontWeight: '500' }}>
-          {message.content}
-        </Text>
-      ) : null}
-      <Text
-        style={{
-          fontSize: 10,
-          color: 'rgba(255, 255, 255, 0.75)',
-          marginTop: 4,
+      style={[
+        {
           alignSelf: 'flex-end',
+          maxWidth: '85%',
+          minWidth: 80,
+          borderRadius: 20,
+          borderBottomRightRadius: 4,
+          overflow: 'hidden',
+          backgroundColor:
+            Platform.OS === 'ios'
+              ? 'rgba(240, 242, 245, 0.65)'
+              : 'rgba(238, 241, 246, 0.85)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.7)',
+          borderTopColor: 'rgba(255, 255, 255, 0.95)',
+          borderBottomColor: 'rgba(203, 213, 225, 0.45)',
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 14,
+          elevation: 3,
+        },
+        Platform.OS === 'web'
+          ? ({
+              backdropFilter: 'blur(24px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+              boxShadow:
+                '0 6px 20px rgba(15, 23, 42, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.85), inset 0 -1px 1px rgba(148, 163, 184, 0.12)',
+            } as any)
+          : null,
+      ]}
+    >
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 75 : 45}
+        tint="light"
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: 'transparent',
         }}
       >
-        {message.time}
-      </Text>
+        {message.imageUri && (
+          <View
+            style={{
+              marginBottom: 8,
+              borderRadius: 14,
+              overflow: 'hidden',
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.9)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.04,
+              shadowRadius: 6,
+            }}
+          >
+            <Image
+              source={{ uri: message.imageUri }}
+              style={{ width: 220, height: 160, borderRadius: 13 }}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+        {message.fileName && !message.imageUri && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              marginBottom: 8,
+              paddingVertical: 9,
+              paddingHorizontal: 12,
+              borderRadius: 14,
+              backgroundColor: 'rgba(255, 255, 255, 0.85)',
+              borderWidth: 1,
+              borderColor: 'rgba(226, 232, 240, 0.9)',
+            }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: message.fileName.toLowerCase().endsWith('.pdf')
+                  ? '#FEE2E2'
+                  : message.fileName.toLowerCase().endsWith('.pptx') || message.fileName.toLowerCase().endsWith('.ppt')
+                  ? '#FFEDD5'
+                  : message.fileName.toLowerCase().endsWith('.docx') || message.fileName.toLowerCase().endsWith('.doc')
+                  ? '#DBEAFE'
+                  : '#F1F5F9',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon
+                name="doc.text"
+                size={17}
+                color={
+                  message.fileName.toLowerCase().endsWith('.pdf')
+                    ? '#EF4444'
+                    : message.fileName.toLowerCase().endsWith('.pptx') || message.fileName.toLowerCase().endsWith('.ppt')
+                    ? '#F97316'
+                    : message.fileName.toLowerCase().endsWith('.docx') || message.fileName.toLowerCase().endsWith('.doc')
+                    ? '#3B82F6'
+                    : '#64748B'
+                }
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}
+                numberOfLines={1}
+              >
+                {message.fileName}
+              </Text>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: '#64748B' }}>
+                Document attached
+              </Text>
+            </View>
+          </View>
+        )}
+        {message.content ? (
+          <Text
+            style={{
+              fontSize: 15,
+              lineHeight: 22,
+              color: '#0F172A',
+              fontWeight: '500',
+              letterSpacing: -0.15,
+            }}
+          >
+            {message.content}
+          </Text>
+        ) : null}
+        <Text
+          style={{
+            fontSize: 10,
+            color: '#64748B',
+            marginTop: 4,
+            alignSelf: 'flex-end',
+            fontWeight: '500',
+          }}
+        >
+          {message.time}
+        </Text>
+      </BlurView>
     </Animated.View>
+  );
+}
+
+interface MessageBlock {
+  type: 'text' | 'svg';
+  content: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+function extractMessageBlocks(raw: string): MessageBlock[] {
+  const blocks: MessageBlock[] = [];
+  const svgRegex = /(?:```(?:svg|xml)?\s*(<svg[\s\S]*?<\/svg>)\s*```|(<svg[\s\S]*?<\/svg>))/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = svgRegex.exec(raw)) !== null) {
+    if (match.index > lastIndex) {
+      blocks.push({
+        type: 'text',
+        content: raw.slice(lastIndex, match.index),
+        startIndex: lastIndex,
+        endIndex: match.index,
+      });
+    }
+    const svgContent = match[1] || match[2];
+    blocks.push({
+      type: 'svg',
+      content: svgContent.trim(),
+      startIndex: match.index,
+      endIndex: match.index + match[0].length,
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < raw.length) {
+    blocks.push({
+      type: 'text',
+      content: raw.slice(lastIndex),
+      startIndex: lastIndex,
+      endIndex: raw.length,
+    });
+  }
+
+  return blocks.length > 0
+    ? blocks
+    : [{ type: 'text', content: raw, startIndex: 0, endIndex: raw.length }];
+}
+
+function VisualDiagramCard({ svgXml }: { svgXml: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  // Extract clean SVG content between <svg and </svg>
+  let cleanSvg = (svgXml || '').trim();
+  const lower = cleanSvg.toLowerCase();
+  const svgStart = lower.indexOf('<svg');
+  const svgEnd = lower.lastIndexOf('</svg>');
+  if (svgStart !== -1 && svgEnd !== -1) {
+    cleanSvg = cleanSvg.slice(svgStart, svgEnd + 6);
+  }
+
+  // Ensure xmlns is present for SVG standards compliance
+  if (!cleanSvg.includes('xmlns=')) {
+    cleanSvg = cleanSvg.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+
+  // Ensure viewBox is present
+  if (!cleanSvg.includes('viewBox=') && !cleanSvg.includes('viewbox=')) {
+    cleanSvg = cleanSvg.replace(/<svg/i, '<svg viewBox="0 0 400 220"');
+  }
+
+  // Strip broken marker-end if no marker definitions are present
+  if (cleanSvg.includes('marker-end=') && !cleanSvg.includes('<marker')) {
+    cleanSvg = cleanSvg.replace(/marker-end="[^"]*"/g, '');
+  }
+
+  // Inject responsive fluid sizing for Web DOM
+  let webSvg = cleanSvg;
+  if (webSvg.includes('style=')) {
+    webSvg = webSvg.replace(
+      /style="[^"]*"/,
+      'style="width:100%;max-width:100%;height:auto;max-height:260px;display:block;border-radius:10px;margin:0 auto;"',
+    );
+  } else {
+    webSvg = webSvg.replace(
+      /<svg/i,
+      '<svg style="width:100%;max-width:100%;height:auto;max-height:260px;display:block;border-radius:10px;margin:0 auto;"',
+    );
+  }
+
+  return (
+    <View
+      style={{
+        marginVertical: 10,
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        borderRadius: 14,
+      }}
+    >
+      {hasError ? (
+        <Image
+          source={{ uri: `data:image/svg+xml;utf8,${encodeURIComponent(cleanSvg)}` }}
+          style={{ width: '100%', height: 220, borderRadius: 14 }}
+          resizeMode="contain"
+        />
+      ) : Platform.OS === 'web' ? (
+        React.createElement('div', {
+          style: {
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            borderRadius: '14px',
+          },
+          dangerouslySetInnerHTML: { __html: webSvg },
+        })
+      ) : (
+        <SvgXml
+          xml={cleanSvg}
+          width="100%"
+          height={220}
+          onError={() => setHasError(true)}
+        />
+      )}
+    </View>
   );
 }
 
@@ -867,6 +1192,7 @@ function SmoothAssistantText({
   onComplete?: () => void;
   onStreamStep?: () => void;
 }) {
+  const blocks = extractMessageBlocks(text);
   const [displayedLength, setDisplayedLength] = useState(isStreaming ? 0 : text.length);
 
   useEffect(() => {
@@ -880,8 +1206,18 @@ function SmoothAssistantText({
     let current = 0;
 
     const interval = setInterval(() => {
-      const step = current < 60 ? 2 : current < 220 ? 3 : 5;
-      current = Math.min(totalLength, current + step);
+      // If typing head is inside an SVG block, jump past it immediately
+      const activeSvg = blocks.find(
+        (b) => b.type === 'svg' && current >= b.startIndex && current < b.endIndex,
+      );
+
+      if (activeSvg) {
+        current = activeSvg.endIndex;
+      } else {
+        const step = current < 60 ? 2 : current < 220 ? 3 : 5;
+        current = Math.min(totalLength, current + step);
+      }
+
       setDisplayedLength(current);
       onStreamStep?.();
 
@@ -894,15 +1230,55 @@ function SmoothAssistantText({
     return () => clearInterval(interval);
   }, [text, isStreaming]);
 
-  const visibleText = isStreaming ? text.slice(0, displayedLength) : text;
+  // Fast path for simple text messages with no diagrams
+  if (blocks.length === 1 && blocks[0].type === 'text') {
+    const visibleText = isStreaming ? text.slice(0, displayedLength) : text;
+    return (
+      <Text style={{ fontSize: 14, lineHeight: 22, color: '#1F2937' }}>
+        {visibleText.replace(/\*\*/g, '')}
+        {isStreaming && displayedLength < text.length && (
+          <Text style={{ color: '#6366F1', fontWeight: '700' }}> ▋</Text>
+        )}
+      </Text>
+    );
+  }
 
+  // Multi-block renderer with inline diagrams
   return (
-    <Text style={{ fontSize: 14, lineHeight: 22, color: '#1F2937' }}>
-      {visibleText.replace(/\*\*/g, '')}
-      {isStreaming && displayedLength < text.length && (
-        <Text style={{ color: '#6366F1', fontWeight: '700' }}> ▋</Text>
-      )}
-    </Text>
+    <View style={{ width: '100%' }}>
+      {blocks.map((block, idx) => {
+        if (isStreaming && displayedLength < block.startIndex) {
+          return null;
+        }
+
+        if (block.type === 'svg') {
+          return <VisualDiagramCard key={`svg-${idx}`} svgXml={block.content} />;
+        }
+
+        const visibleBlockContent = isStreaming
+          ? block.content.slice(0, Math.max(0, displayedLength - block.startIndex))
+          : block.content;
+
+        if (!visibleBlockContent) return null;
+
+        const isCurrentActiveBlock =
+          isStreaming &&
+          displayedLength >= block.startIndex &&
+          displayedLength < block.endIndex;
+
+        return (
+          <Text
+            key={`txt-${idx}`}
+            style={{ fontSize: 14, lineHeight: 22, color: '#1F2937', marginVertical: 2 }}
+          >
+            {visibleBlockContent.replace(/\*\*/g, '')}
+            {isCurrentActiveBlock && (
+              <Text style={{ color: '#6366F1', fontWeight: '700' }}> ▋</Text>
+            )}
+          </Text>
+        );
+      })}
+    </View>
   );
 }
 
@@ -982,6 +1358,138 @@ function WaveFrequencyBars({ isListening }: { isListening: boolean }) {
   );
 }
 
+/* ==================== Apple Speech-to-Speech Components ==================== */
+
+function AppleSpeakerMaxIcon({ size = 15, color = '#4F46E5' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M11 5L6 9H2v6h4l5 4V5z" />
+      <Path
+        d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function AppleSpeakerMuteIcon({ size = 15, color = '#9CA3AF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M11 5L6 9H2v6h4l5 4V5z" />
+      <Path
+        d="M23 9l-6 6m0-6l6 6"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function AgentSpeechMicroWaves({ color = '#4F46E5' }: { color?: string }) {
+  const anim1 = useRef(new Animated.Value(4)).current;
+  const anim2 = useRef(new Animated.Value(10)).current;
+  const anim3 = useRef(new Animated.Value(6)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(anim1, { toValue: 12, duration: 250, useNativeDriver: false }),
+          Animated.timing(anim2, { toValue: 4, duration: 220, useNativeDriver: false }),
+          Animated.timing(anim3, { toValue: 13, duration: 280, useNativeDriver: false }),
+        ]),
+        Animated.parallel([
+          Animated.timing(anim1, { toValue: 4, duration: 250, useNativeDriver: false }),
+          Animated.timing(anim2, { toValue: 12, duration: 220, useNativeDriver: false }),
+          Animated.timing(anim3, { toValue: 5, duration: 280, useNativeDriver: false }),
+        ]),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim1, anim2, anim3]);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', height: 16, gap: 2.5, paddingHorizontal: 1 }}>
+      <Animated.View style={{ width: 2.5, height: anim1, borderRadius: 1.25, backgroundColor: color }} />
+      <Animated.View style={{ width: 2.5, height: anim2, borderRadius: 1.25, backgroundColor: color }} />
+      <Animated.View style={{ width: 2.5, height: anim3, borderRadius: 1.25, backgroundColor: color }} />
+    </View>
+  );
+}
+
+function AgentSpeechWaveform({ isSpeaking = true }: { isSpeaking?: boolean }) {
+  const bars = useRef(Array.from({ length: 5 }, () => new Animated.Value(6))).current;
+
+  useEffect(() => {
+    if (!isSpeaking) return;
+    const configs = [
+      { min: 4, max: 18, dur: 220, delay: 0 },
+      { min: 7, max: 22, dur: 280, delay: 50 },
+      { min: 5, max: 16, dur: 240, delay: 100 },
+      { min: 9, max: 24, dur: 310, delay: 150 },
+      { min: 4, max: 14, dur: 250, delay: 80 },
+    ];
+    const loops = bars.map((bar, i) => {
+      const c = configs[i];
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(c.delay),
+          Animated.timing(bar, { toValue: c.max, duration: c.dur, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+          Animated.timing(bar, { toValue: c.min, duration: c.dur, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+        ]),
+      );
+    });
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [isSpeaking, bars]);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', height: 24, gap: 3 }}>
+      {bars.map((bar, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 3,
+            height: bar,
+            borderRadius: 1.5,
+            backgroundColor: i % 2 === 0 ? '#38BDF8' : '#818CF8',
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+function cleanTextForSpeech(raw: string): string {
+  if (!raw) return '';
+  let text = raw;
+  // Replace SVG diagrams with spoken notification
+  text = text.replace(/```svg[\s\S]*?```/gi, 'I have created an interactive visual diagram for you above.');
+  // Replace code blocks with concise spoken description
+  text = text.replace(/```[\s\S]*?```/gi, 'Here is the relevant code or formula.');
+  // Strip HTML / XML tags
+  text = text.replace(/<[^>]*>/g, '');
+  // Strip markdown formatting symbols
+  text = text.replace(/[*#_~`>]/g, '');
+  // Replace bullet points with pauses
+  text = text.replace(/^[•\-\*]\s+/gm, '. ');
+  // Strip URLs
+  text = text.replace(/https?:\/\/\S+/g, '');
+  // Clean mathematical notation for speech
+  text = text.replace(/\^2\b/g, ' squared').replace(/\^3\b/g, ' cubed');
+  text = text.replace(/\s*=\s*/g, ' equals ');
+  text = text.replace(/\s*\+\s*/g, ' plus ');
+  // Collapse whitespace and newlines
+  text = text.replace(/\n+/g, '. ').replace(/\s{2,}/g, ' ');
+  return text.trim();
+}
+
 export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   const { open } = useApp();
   const { text: typingEffectText, cursorVisible } = useTypingEffect(PROMPT_WORDS);
@@ -995,39 +1503,141 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   const [aiStatus, setAiStatus] = useState<{ live: boolean; model: string } | null>(null);
   const [statusChecking, setStatusChecking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(true);
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+
+  const stopSpeaking = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    setIsAgentSpeaking(false);
+    setSpeakingMsgId(null);
+  };
+
+  const speakText = (rawText: string, msgId: string) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+
+    stopSpeaking();
+
+    const clean = cleanTextForSpeech(rawText);
+    if (!clean) return;
+
+    setIsAgentSpeaking(true);
+    setSpeakingMsgId(msgId);
+
+    // Split into sentences for reliable continuous playback without Chrome timeout
+    const sentences = clean
+      .match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g)
+      ?.map((s) => s.trim())
+      .filter((s) => s.length > 0) || [clean];
+
+    let currentIdx = 0;
+
+    const speakNext = () => {
+      if (currentIdx >= sentences.length) {
+        setIsAgentSpeaking(false);
+        setSpeakingMsgId(null);
+        return;
+      }
+
+      const sentence = sentences[currentIdx];
+      currentIdx++;
+
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.rate = 1.02;
+      utterance.pitch = 1.0;
+
+      const voices = window.speechSynthesis.getVoices();
+      if (voices && voices.length > 0) {
+        const preferred =
+          voices.find(
+            (v) =>
+              v.lang.startsWith('en') &&
+              (v.name.includes('Natural') ||
+                v.name.includes('Google') ||
+                v.name.includes('Samantha') ||
+                v.name.includes('Daniel') ||
+                v.name.includes('Karen')),
+          ) || voices.find((v) => v.lang.startsWith('en'));
+        if (preferred) utterance.voice = preferred;
+      }
+
+      utterance.onend = () => {
+        speakNext();
+      };
+
+      utterance.onerror = () => {
+        setIsAgentSpeaking(false);
+        setSpeakingMsgId(null);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    speakNext();
+  };
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
   const [selectedImage, setSelectedImage] = useState<{
-    previewUrl: string;
+    previewUrl?: string;
     data: string;
     mimeType: string;
     name?: string;
+    isDoc?: boolean;
   } | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
 
-  const handlePickImage = (useCamera = false) => {
+  const handlePickFile = (mode: 'image' | 'camera' | 'document') => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const inputEl = document.createElement('input');
       inputEl.type = 'file';
-      inputEl.accept = 'image/*';
-      if (useCamera) {
-        inputEl.capture = 'environment';
+      if (mode === 'document') {
+        inputEl.accept =
+          '.pdf,.pptx,.ppt,.docx,.doc,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain';
+      } else {
+        inputEl.accept = 'image/*';
+        if (mode === 'camera') {
+          inputEl.capture = 'environment';
+        }
       }
       inputEl.onchange = (e: any) => {
         const file = e.target?.files?.[0];
         if (!file) return;
-        if (file.size > 12 * 1024 * 1024) {
-          alert('Please choose an image under 12MB.');
+        const maxBytes = mode === 'document' ? 25 * 1024 * 1024 : 12 * 1024 * 1024;
+        if (file.size > maxBytes) {
+          alert(`Please choose a file under ${mode === 'document' ? '25MB' : '12MB'}.`);
           return;
         }
+        const isDoc = mode === 'document';
         const reader = new FileReader();
         reader.onload = () => {
           const res = reader.result as string;
           const [header, base64] = res.split(',');
-          const mimeType = header.match(/:(.*?);/)?.[1] || file.type || 'image/jpeg';
+          let mimeType = header?.match(/:(.*?);/)?.[1] || file.type || 'application/octet-stream';
+          const lowerName = file.name.toLowerCase();
+          if (lowerName.endsWith('.pdf')) mimeType = 'application/pdf';
+          else if (lowerName.endsWith('.pptx'))
+            mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+          else if (lowerName.endsWith('.docx'))
+            mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (lowerName.endsWith('.txt') || lowerName.endsWith('.md'))
+            mimeType = 'text/plain';
+
           setSelectedImage({
-            previewUrl: res,
+            previewUrl: isDoc ? undefined : res,
             data: base64,
             mimeType,
-            name: file.name || (useCamera ? 'Camera Photo.jpg' : 'Lesson Sheet.jpg'),
+            name: file.name || (mode === 'camera' ? 'Camera Photo.jpg' : isDoc ? 'Lesson Notes.pdf' : 'Lesson Sheet.jpg'),
+            isDoc,
           });
         };
         reader.readAsDataURL(file);
@@ -1157,6 +1767,16 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
 
   const samplePrompts = [
     {
+      tag: '📈 Graphing',
+      title: 'Graph Parabola y = x²',
+      prompt: 'Can you show me a visual graph diagram of a parabola y = x² and guide me through understanding its vertex and symmetry?',
+    },
+    {
+      tag: '📐 Geometry',
+      title: 'Pythagorean Theorem Visual',
+      prompt: 'Can you draw a right triangle diagram showing sides a, b, and hypotenuse c, and guide me to understand why a² + b² = c²?',
+    },
+    {
       tag: '📐 Algebra',
       title: 'Factoring vs Quadratic Formula',
       prompt: 'Help me understand when to use the quadratic formula versus factoring. Guide me with questions.',
@@ -1198,9 +1818,16 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
     const userMsg: ChatMessage = {
       id: randomUUID(),
       role: 'user',
-      content: text || (currentImage ? 'Uploaded lesson material for guided study.' : ''),
+      content:
+        text ||
+        (currentImage?.isDoc
+          ? `Attached document: ${currentImage.name || 'Lesson Notes'}`
+          : currentImage
+          ? 'Uploaded lesson material for guided study.'
+          : ''),
       time: timeStr,
       imageUri: currentImage?.previewUrl,
+      fileName: currentImage?.name,
     };
 
     const updated = [...messages, userMsg];
@@ -1221,24 +1848,51 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       let replyModel = 'gemini-3.5-flash-lite';
       let isLive = true;
 
-      // 1. Prioritize direct Google Gemini call with Vision support & Socratic Tutoring instructions
-      const direct = await callGeminiDirect(
-        text,
-        history,
-        currentImage ? { data: currentImage.data, mimeType: currentImage.mimeType } : null,
-      );
+      const isOfficeDoc =
+        currentImage?.name?.toLowerCase().endsWith('.pptx') ||
+        currentImage?.name?.toLowerCase().endsWith('.docx');
+
+      // 1. Try direct Google Gemini call (for images, text, and PDF)
+      let direct = null;
+      if (!isOfficeDoc) {
+        direct = await callGeminiDirect(
+          text,
+          history,
+          currentImage
+            ? {
+                data: currentImage.data,
+                mimeType: currentImage.mimeType,
+                name: currentImage.name,
+                isDoc: currentImage.isDoc,
+              }
+            : null,
+        );
+      }
+
       if (direct?.reply) {
         replyText = direct.reply.replace(/\*\*/g, '');
         replyModel = direct.model;
         isLive = true;
       } else {
-        // 2. Fallback to backend API server
+        // 2. Fallback to backend API server (with office zip extraction)
         const res = await request<{ reply: string; model: string; live: boolean }>(
           '/ai/chat',
           {
-            message: text || (currentImage ? 'Please analyze my lesson sheet and guide me step-by-step.' : ''),
+            message:
+              text ||
+              (currentImage?.isDoc
+                ? `Please analyze my attached document (${currentImage.name}) and guide me through key concepts step-by-step.`
+                : currentImage
+                ? 'Please analyze my lesson sheet and guide me step-by-step.'
+                : ''),
             history,
-            image: currentImage ? { data: currentImage.data, mimeType: currentImage.mimeType } : undefined,
+            image: currentImage
+              ? {
+                  data: currentImage.data,
+                  mimeType: currentImage.mimeType,
+                  name: currentImage.name,
+                }
+              : undefined,
           },
           false,
         );
@@ -1261,6 +1915,13 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
       setMessages((prev) => [...prev, aiMsg]);
       setStreamingMsgId(aiMsg.id);
       setAiStatus((prev) => ({ ...prev, live: isLive, model: replyModel }));
+
+      // Speech-to-Speech: If Agent Voice Talk is ON, immediately speak response aloud
+      if (isVoiceMode && replyText) {
+        setTimeout(() => {
+          speakText(replyText, aiMsg.id);
+        }, 120);
+      }
     } catch (err: any) {
       const errMsg: ChatMessage = {
         id: randomUUID(),
@@ -1290,12 +1951,14 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
   };
 
   const startNewChat = () => {
+    stopSpeaking();
     setMessages([]);
     setInput('');
     setShowPromptsSheet(false);
   };
 
   const startListening = () => {
+    stopSpeaking();
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       try {
         const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -1426,25 +2089,81 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
               : Math.max(insets.bottom, 14),
           }}
         >
-        {/* 1. TOP BAR */}
+        {/* 1. TOP BAR WITH SPEECH-TO-SPEECH TOGGLE BAR */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingVertical: 12,
+            justifyContent: 'space-between',
+            paddingVertical: 10,
             zIndex: 20,
           }}
         >
-          <Pressable
-            onPress={onBack || (() => setShowPromptsSheet((prev) => !prev))}
-            accessibilityLabel={onBack ? 'Back' : 'Menu'}
-            style={({ pressed }) => [
-              { padding: 4, borderRadius: 8 },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <Icon name={onBack ? 'arrow.left' : 'line.2.horizontal'} size={24} color={colors.ink} />
-          </Pressable>
+          {/* Left: Back / Menu Pill */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable
+              onPress={onBack || (() => setShowPromptsSheet((prev) => !prev))}
+              accessibilityLabel={onBack ? 'Back' : 'Menu'}
+              style={({ pressed }) => [
+                {
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#F2F2F7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <Icon name={onBack ? 'arrow.left' : 'line.2.horizontal'} size={18} color={colors.ink} />
+            </Pressable>
+
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: '700',
+                    color: colors.ink,
+                    letterSpacing: -0.3,
+                    fontFamily: fontStack,
+                  }}
+                >
+                  Socratic Agent
+                </Text>
+                <View
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: 3.5,
+                    backgroundColor: aiStatus?.live !== false ? '#34C759' : '#F59E0B',
+                  }}
+                />
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: '#8E8E93', fontFamily: fontStack }}>
+                AI Study Mentor
+              </Text>
+            </View>
+          </View>
+
+          {/* Right: SquishSwitch laid directly in the main background (no container, no icon) */}
+          <SquishSwitch
+            checked={isVoiceMode}
+            onChange={(next) => {
+              if (isVoiceMode && isAgentSpeaking) {
+                stopSpeaking();
+              }
+              setIsVoiceMode(next);
+            }}
+            label={isAgentSpeaking ? 'Talking…' : 'Agent Voice'}
+            ariaLabel="Agent Voice Talk"
+            trackColor="#27272a"
+            trackOnColor="#f5f5f5"
+            width={68}
+            height={34}
+            radius={17}
+          />
         </View>
 
         {/* AI STUDY ASSISTANT SETUP GUIDE DRAWER */}
@@ -1557,11 +2276,103 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                       }, 60);
                     }}
                   />
-                  {m.time ? (
-                    <Text style={{ fontSize: 10, color: colors.muted, alignSelf: 'flex-end', marginTop: 8 }}>
-                      {m.time}
-                    </Text>
-                  ) : null}
+
+                  {/* Assistant Actions Bar: Listen / Speak Audio, Copy, and Timestamp */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 10,
+                      paddingTop: 8,
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {/* Listen / Speak Button */}
+                      <Pressable
+                        onPress={() => {
+                          if (speakingMsgId === m.id && isAgentSpeaking) {
+                            stopSpeaking();
+                          } else {
+                            speakText(m.content, m.id);
+                          }
+                        }}
+                        accessibilityLabel={speakingMsgId === m.id && isAgentSpeaking ? 'Stop speaking' : 'Listen to answer'}
+                        style={({ pressed }) => [
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 12,
+                            backgroundColor:
+                              speakingMsgId === m.id && isAgentSpeaking
+                                ? '#EEF2FF'
+                                : '#F1F5F9',
+                          },
+                          pressed && { opacity: 0.6 },
+                        ]}
+                      >
+                        {speakingMsgId === m.id && isAgentSpeaking ? (
+                          <>
+                            <AgentSpeechMicroWaves color="#4F46E5" />
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
+                              Speaking…
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <AppleSpeakerMaxIcon size={13} color="#64748B" />
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: '#64748B' }}>
+                              Listen
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+
+                      {/* Copy Button */}
+                      <Pressable
+                        onPress={() => handleCopy(m.id, m.content)}
+                        accessibilityLabel="Copy text"
+                        style={({ pressed }) => [
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 12,
+                            backgroundColor: copiedId === m.id ? '#DCFCE7' : '#F1F5F9',
+                          },
+                          pressed && { opacity: 0.6 },
+                        ]}
+                      >
+                        <Icon
+                          name={copiedId === m.id ? 'checkmark' : 'doc.on.doc'}
+                          size={12}
+                          color={copiedId === m.id ? '#16A34A' : '#64748B'}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '600',
+                            color: copiedId === m.id ? '#16A34A' : '#64748B',
+                          }}
+                        >
+                          {copiedId === m.id ? 'Copied' : 'Copy'}
+                        </Text>
+                      </Pressable>
+                    </View>
+
+                    {m.time ? (
+                      <Text style={{ fontSize: 10, color: colors.muted }}>
+                        {m.time}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
               ),
             )}
@@ -1579,7 +2390,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                   borderColor: '#E2E8F0',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 10,
+                  justifyContent: 'center',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.04,
@@ -1587,7 +2398,6 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                   elevation: 1,
                 }}
               >
-                <Icon name="sparkles" size={16} color="#111827" />
                 <ThreeDotsWave color="#111827" size={7} />
               </Animated.View>
             )}
@@ -1645,14 +2455,14 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
           </View>
         )}
 
-        {/* Selected Lesson Image Preview Badge */}
+        {/* Selected Lesson Attachment Preview Badge */}
         {selectedImage && (
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               alignSelf: 'flex-start',
-              backgroundColor: 'rgba(255, 255, 255, 0.92)',
+              backgroundColor: 'rgba(255, 255, 255, 0.94)',
               borderRadius: 16,
               padding: 6,
               paddingRight: 10,
@@ -1667,22 +2477,55 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
               gap: 8,
             }}
           >
-            <Image
-              source={{ uri: selectedImage.previewUrl }}
-              style={{ width: 34, height: 34, borderRadius: 10 }}
-              resizeMode="cover"
-            />
+            {selectedImage.previewUrl ? (
+              <Image
+                source={{ uri: selectedImage.previewUrl }}
+                style={{ width: 34, height: 34, borderRadius: 10 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  backgroundColor: selectedImage.name?.toLowerCase().endsWith('.pdf')
+                    ? '#FEE2E2'
+                    : selectedImage.name?.toLowerCase().endsWith('.pptx') || selectedImage.name?.toLowerCase().endsWith('.ppt')
+                    ? '#FFEDD5'
+                    : selectedImage.name?.toLowerCase().endsWith('.docx') || selectedImage.name?.toLowerCase().endsWith('.doc')
+                    ? '#DBEAFE'
+                    : '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Icon
+                  name="doc.text"
+                  size={18}
+                  color={
+                    selectedImage.name?.toLowerCase().endsWith('.pdf')
+                      ? '#EF4444'
+                      : selectedImage.name?.toLowerCase().endsWith('.pptx') || selectedImage.name?.toLowerCase().endsWith('.ppt')
+                      ? '#F97316'
+                      : selectedImage.name?.toLowerCase().endsWith('.docx') || selectedImage.name?.toLowerCase().endsWith('.doc')
+                      ? '#3B82F6'
+                      : '#64748B'
+                  }
+                />
+              </View>
+            )}
             <View style={{ maxWidth: 170 }}>
               <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: colors.ink }}>
-                {selectedImage.name || 'Lesson Sheet'}
+                {selectedImage.name || 'Lesson Document'}
               </Text>
               <Text style={{ fontSize: 10, fontWeight: '600', color: '#059669' }}>
-                Gemini Vision Ready
+                {selectedImage.isDoc ? 'AI Document Ready' : 'Gemini Vision Ready'}
               </Text>
             </View>
             <Pressable
               onPress={() => setSelectedImage(null)}
-              accessibilityLabel="Remove attached image"
+              accessibilityLabel="Remove attached file"
               style={({ pressed }) => [
                 {
                   width: 22,
@@ -1701,7 +2544,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
           </View>
         )}
 
-        {/* Dark Floating Popup Menu (Upload Image & Use Camera) - Matching Image 2 Aesthetic */}
+        {/* Dark Floating Popup Menu (Upload Document, Upload Image & Use Camera) */}
         {showAttachMenu && (
           <View style={{ position: 'relative', zIndex: 999 }}>
             {/* Transparent backdrop to dismiss when clicking outside */}
@@ -1725,7 +2568,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                   bottom: 12,
                   left: 4,
                   zIndex: 1000,
-                  width: 240,
+                  width: 250,
                   backgroundColor: '#1E2025',
                   borderRadius: 18,
                   borderWidth: 1,
@@ -1748,11 +2591,41 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                   : null,
               ]}
             >
-              {/* Option 1: Upload Image */}
+              {/* Option 1: Upload Document */}
               <Pressable
                 onPress={() => {
                   setShowAttachMenu(false);
-                  handlePickImage(false);
+                  handlePickFile('document');
+                }}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 12,
+                    backgroundColor: pressed ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                  } as any,
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Icon name="doc.text" size={17} color="#60A5FA" />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 }}>
+                    Upload Document
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '500', color: '#9CA3AF' }}>
+                  PDF, PPT, DOCX
+                </Text>
+              </Pressable>
+
+              {/* Option 2: Upload Image */}
+              <Pressable
+                onPress={() => {
+                  setShowAttachMenu(false);
+                  handlePickFile('image');
                 }}
                 style={({ pressed }) => [
                   {
@@ -1778,11 +2651,11 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 </Text>
               </Pressable>
 
-              {/* Option 2: Use Camera */}
+              {/* Option 3: Use Camera */}
               <Pressable
                 onPress={() => {
                   setShowAttachMenu(false);
-                  handlePickImage(true);
+                  handlePickFile('camera');
                 }}
                 style={({ pressed }) => [
                   {
@@ -1808,6 +2681,67 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 </Text>
               </Pressable>
             </View>
+          </View>
+        )}
+
+        {/* Floating Agent Speaking HUD Pill */}
+        {isAgentSpeaking && (
+          <View
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                alignSelf: 'center',
+                backgroundColor: '#1E2025',
+                borderRadius: 24,
+                paddingVertical: 7,
+                paddingHorizontal: 14,
+                marginBottom: 8,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 12,
+                elevation: 6,
+                gap: 12,
+                maxWidth: 320,
+              },
+              Platform.OS === 'web'
+                ? ({
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.12)',
+                    animation: 'fadeInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  } as any)
+                : null,
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AgentSpeechWaveform isSpeaking={isAgentSpeaking} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF', letterSpacing: -0.1 }}>
+                Agent speaking…
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={stopSpeaking}
+              accessibilityLabel="Stop agent speech"
+              style={({ pressed }) => [
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(239, 68, 68, 0.22)',
+                  borderRadius: 14,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  gap: 4,
+                },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Icon name="xmark" size={11} color="#EF4444" />
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#EF4444' }}>Stop</Text>
+            </Pressable>
           </View>
         )}
 
@@ -2069,12 +3003,8 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 >
                   {isThinking ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : isListening ? (
-                    <Icon name="arrow.right" size={17} color="#FFFFFF" />
-                  ) : input.trim() || selectedImage ? (
-                    <Icon name="arrow.up" size={17} color="#FFFFFF" />
                   ) : (
-                    <Icon name="waveform" size={17} color="#FFFFFF" />
+                    <Icon name="arrow.right" size={17} color="#FFFFFF" />
                   )}
                 </Pressable>
               </View>

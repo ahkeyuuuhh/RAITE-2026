@@ -48,6 +48,8 @@ import {
 } from './screens';
 import { CreateDraft, Quiz, Review, Submissions } from './assessment-screens';
 import { QuizGeneratorScreen } from './quiz-generator-modal';
+import { DocumentSummarizerScreen } from './document-summarizer-modal';
+import { AudioBitesScreen } from './audio-bites-modal';
 import { AuthFlow } from './auth-flow';
 import type { Assessment, Config, Notice, Profile } from './types';
 
@@ -228,6 +230,14 @@ function Workspace({
       setStandaloneScreen('quiz-gen');
       return;
     }
+    if (kind === 'summary' || kind === 'summarizer') {
+      setStandaloneScreen('summarizer');
+      return;
+    }
+    if (kind === 'audio-bites' || kind === 'podcast' || kind === 'audio') {
+      setStandaloneScreen('audio-bites');
+      return;
+    }
     if (kind === 'agent') {
       setTab('agent');
       return;
@@ -372,6 +382,44 @@ function Workspace({
             onBack={() => {
               setStandaloneScreen(null);
               refresh();
+            }}
+          />
+        </View>
+      </AppContext.Provider>
+    );
+  }
+
+  if (standaloneScreen === 'summarizer') {
+    return (
+      <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <DocumentSummarizerScreen
+            onBack={() => {
+              setStandaloneScreen(null);
+              refresh();
+            }}
+            onAskTutor={() => {
+              setStandaloneScreen(null);
+              setTab('agent');
+            }}
+          />
+        </View>
+      </AppContext.Provider>
+    );
+  }
+
+  if (standaloneScreen === 'audio-bites') {
+    return (
+      <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <AudioBitesScreen
+            onBack={() => {
+              setStandaloneScreen(null);
+              refresh();
+            }}
+            onAskTutor={() => {
+              setStandaloneScreen(null);
+              setTab('agent');
             }}
           />
         </View>
