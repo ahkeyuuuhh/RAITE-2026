@@ -251,6 +251,50 @@ export async function registerAccount(body: {
   }
   return res;
 }
+
+export async function updateProfile(body: {
+  name?: string;
+  school?: string;
+  facultyId?: string;
+  department?: string;
+}): Promise<Profile> {
+  return request<Profile>('/me', body, true, 'PATCH');
+}
+
+export async function fetchMe(): Promise<Profile> {
+  return request<Profile>('/me', undefined, true, 'GET');
+}
+
+export async function uploadProfilePhoto(base64: string, mimeType: string): Promise<Profile> {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Please sign in again.');
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 60000) : null;
+  try {
+    const response = await fetch(`${API_URL}/api/me/avatar`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain',
+        'X-Image-Mime-Type': mimeType,
+      },
+      body: base64,
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Unable to save profile photo.');
+    }
+    return result as Profile;
+  } catch (error) {
+    if ((error as Error)?.name === 'AbortError') {
+      throw new Error('Photo upload timed out. Check your connection and try again.');
+    }
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 export const authClient = () => auth;
 export const dateText = (value: string) =>
   new Intl.DateTimeFormat('en-PH', {

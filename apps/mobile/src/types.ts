@@ -1,4 +1,21 @@
-export type Profile = { id: string; name: string; role: 'teacher' | 'student'; school_id: string };
+export type Profile = {
+  id: string;
+  name: string;
+  role: 'teacher' | 'student';
+  school_id: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  student_number?: string | null;
+  employee_number?: string | null;
+  school_name?: string;
+  department?: string;
+  faculty_id?: string;
+  student_id?: string;
+  course?: string;
+  year_level?: string;
+  avatar_url?: string | null;
+};
 export type Classroom = {
   id: string;
   name: string;
