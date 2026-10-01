@@ -4,7 +4,7 @@ const path = require('path');
 
 const url = process.argv[2] || process.env.EXPO_URL || (process.env.EXPO_PUBLIC_API_URL
   ? process.env.EXPO_PUBLIC_API_URL.replace(/^http:\/\//, 'exp://').replace(/:[0-9]+$/, ':8081')
-  : 'exp://192.168.1.216:8081');
+  : 'exp://192.168.18.13:8081');
 const data = toQR(url);
 const extent = Math.sqrt(data.length) | 0;
 const quiet = 4;

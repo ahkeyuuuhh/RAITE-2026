@@ -150,7 +150,20 @@ export function AuthFlow({
         setOnboardingError('Could not complete registration. Please try again.');
       }
     } catch (e) {
-      setOnboardingError((e as Error).message || 'Registration failed.');
+      const raw = (e as Error)?.message || '';
+      if (
+        !raw ||
+        raw.includes('Fetch') ||
+        raw.includes('canceled') ||
+        raw.includes('cancelled') ||
+        raw.includes('Network') ||
+        raw.includes('connection') ||
+        raw.includes('Abort')
+      ) {
+        setOnboardingError('Could not create your account. Please check your connection and try again.');
+      } else {
+        setOnboardingError(raw);
+      }
     } finally {
       setOnboardingBusy(false);
     }

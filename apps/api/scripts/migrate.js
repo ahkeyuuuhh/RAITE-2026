@@ -3,6 +3,22 @@ import { pool, transaction } from '../src/db.js';
 const files = (await readdir(new URL('../../../supabase/migrations/', import.meta.url)))
   .filter((f) => f.endsWith('.sql'))
   .sort();
+const coreTables = [
+  'schools',
+  'profiles',
+  'availability',
+  'classes',
+  'memberships',
+  'consultations',
+  'assessments',
+  'approvals',
+  'jobs',
+  'calendar_events',
+  'notifications',
+  'attempts',
+  'audit_events',
+  'worker_heartbeat',
+];
 await transaction(async (db) => {
   await db.query('select pg_advisory_xact_lock(7302601)');
   await db.query('create schema if not exists supabase_migrations');
@@ -23,6 +39,21 @@ await transaction(async (db) => {
       new URL(`../../../supabase/migrations/${file}`, import.meta.url),
       'utf8',
     );
+    if (file === '20261001102322_classassist_core.sql') {
+      const existing = await db.query(
+        `select count(*)::int as count from pg_tables
+         where schemaname='classassist' and tablename = any($1::text[])`,
+        [coreTables],
+      );
+      if (existing.rows[0].count === coreTables.length) {
+        await db.query(
+          'insert into supabase_migrations.schema_migrations(version,name,statements) values($1,$2,$3)',
+          [version, name.join('_'), [sql]],
+        );
+        console.log(`Recorded existing core schema baseline for ${file}`);
+        continue;
+      }
+    }
     await db.query(sql);
     await db.query(
       'insert into supabase_migrations.schema_migrations(version,name,statements) values($1,$2,$3)',

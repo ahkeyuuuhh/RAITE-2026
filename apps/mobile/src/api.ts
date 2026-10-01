@@ -167,8 +167,17 @@ export async function request<T>(
   authenticated = true,
   method?: string,
 ): Promise<T> {
-  const controller = new AbortController(),
-    timer = setTimeout(() => controller.abort(), 40000);
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => {
+        try {
+          controller.abort();
+        } catch {
+          // Ignored
+        }
+      }, 45000)
+    : null;
+
   try {
     const token = authenticated ? await getAuthToken() : undefined;
     if (authenticated && !token) throw new Error('Please sign in again.');
@@ -179,17 +188,32 @@ export async function request<T>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: controller.signal,
+      ...(controller ? { signal: controller.signal } : {}),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error?.message || 'Unable to complete this request.');
     return result;
   } catch (e) {
-    if (e instanceof Error && (e.name === 'AbortError' || e.message === 'Network request failed'))
+    const msg = (e as Error)?.message || String(e);
+    const name = (e as Error)?.name || '';
+    if (
+      name === 'AbortError' ||
+      msg.includes('Fetch request has been canceled') ||
+      msg.includes('FetchRequestCanceledException') ||
+      msg.includes('Network request failed') ||
+      msg.includes('Failed to fetch') ||
+      msg.includes('timed out') ||
+      msg.includes('timeout') ||
+      msg.includes('connection')
+    ) {
+      if (path === '/auth/register') {
+        throw new Error('Could not create your account. Please check your connection and try again.');
+      }
       throw new Error('Cannot reach Aider. Check your connection and try again.');
+    }
     throw e;
   } finally {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -202,7 +226,7 @@ export type AuthResponse = {
 
 export async function loginAccount(body: { email: string; password: string }): Promise<AuthResponse> {
   const res = await request<AuthResponse>('/auth/login', body, false, 'POST');
-  if (res.token) {
+  if (res && res.ok && res.token) {
     await setAuthToken(res.token);
   }
   return res;
@@ -222,7 +246,7 @@ export async function registerAccount(body: {
   department?: string;
 }): Promise<AuthResponse> {
   const res = await request<AuthResponse>('/auth/register', body, false, 'POST');
-  if (res.token) {
+  if (res && res.ok && res.token) {
     await setAuthToken(res.token);
   }
   return res;

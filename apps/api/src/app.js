@@ -160,7 +160,13 @@ app.post(
         firstName: z.string().trim().min(1, 'First name is required.'),
         lastName: z.string().trim().min(1, 'Last name is required.'),
         role: z.enum(['teacher', 'student']),
-        school: z.string().trim().optional().default('University of the Philippines Diliman'),
+        school: z
+          .string()
+          .trim()
+          .min(2)
+          .max(160)
+          .optional()
+          .default('University of the Philippines Diliman'),
         studentId: z.string().trim().optional().default(''),
         course: z.string().trim().optional().default(''),
         yearLevel: z.string().trim().optional().default(''),
@@ -178,10 +184,21 @@ app.post(
       fail('EMAIL_EXISTS', 'An account with this email already exists.', 409);
     }
 
-    const schoolId = '00000000-0000-4000-8000-000000000001';
     const fullName = `${body.firstName} ${body.lastName}`.trim();
 
     return await transaction(async (db) => {
+      const existingSchool = await one(
+        db,
+        'select id from classassist.schools where lower(name)=lower($1) order by created_at limit 1',
+        [body.school],
+      );
+      const schoolId =
+        existingSchool?.id ||
+        (
+          await one(db, 'insert into classassist.schools(name) values($1) returning id', [
+            body.school,
+          ])
+        ).id;
       const account = await one(
         db,
         `insert into classassist.accounts (
