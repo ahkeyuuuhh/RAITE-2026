@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import { connect, authClient, request, setAuthToken, getAuthToken } from './api';
 import { AppContext, useRemote } from './context';
@@ -190,20 +192,202 @@ function Root() {
     />
   );
 }
-const studentTabs: { key: string; label: string; icon: IconName }[] = [
-  { key: 'home', label: 'Home', icon: 'house.fill' },
-  { key: 'review', label: 'Review', icon: 'doc.text' },
-  { key: 'agent', label: 'Agent', icon: 'sparkles' },
-  { key: 'calendar', label: 'Calendar', icon: 'calendar' },
-  { key: 'profile', label: 'Profile', icon: 'person.fill' },
+/* ==================== FLOATING PILL NAVBAR VECTOR ICONS ==================== */
+
+function NavSearchIcon({ color = '#FFFFFF', size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="10.8" cy="10.8" r="6.6" stroke={color} strokeWidth="2.4" />
+      <Path d="M16 16L20.8 20.8" stroke={color} strokeWidth="2.6" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function NavCompassIcon({ color = '#FFFFFF', size = 21 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3.5" y="3.5" width="17" height="17" rx="5.5" stroke={color} strokeWidth="2" />
+      <Path
+        d="M14.6 9.4L10.2 10.8L9.4 14.6L13.8 13.2L14.6 9.4Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="12" r="1.3" fill={color} />
+    </Svg>
+  );
+}
+
+function NavPlanetIcon({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="5.6" stroke={color} strokeWidth="2" />
+      <Path
+        d="M3.2 15.2C5.2 18 10 18.5 14.8 15.8C18.8 13.5 20.8 9.8 19.5 7.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M20.8 8.8C18.8 6 14 5.5 9.2 8.2C5.2 10.5 3.2 14.2 4.5 16.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function NavLibraryIcon({ color = '#FFFFFF', size = 21 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="3.8" width="6.5" height="16.4" rx="3.25" stroke={color} strokeWidth="2" />
+      <Circle cx="7.25" cy="8.2" r="1.2" fill={color} />
+      <Circle cx="7.25" cy="15.8" r="1.2" fill={color} />
+      <Rect x="13.5" y="3.8" width="6.5" height="16.4" rx="3.25" stroke={color} strokeWidth="2" />
+      <Circle cx="16.75" cy="8.2" r="1.2" fill={color} />
+      <Circle cx="16.75" cy="15.8" r="1.2" fill={color} />
+    </Svg>
+  );
+}
+
+export type PillIconType = 'search' | 'compass' | 'planet' | 'library';
+
+export interface PillTabItem {
+  key: string;
+  label: string;
+  icon: PillIconType;
+}
+
+const studentTabs: PillTabItem[] = [
+  { key: 'home', label: 'Explore', icon: 'search' },
+  { key: 'review', label: 'Review', icon: 'compass' },
+  { key: 'agent', label: 'Agent', icon: 'planet' },
+  { key: 'calendar', label: 'Calendar', icon: 'library' },
 ];
 
-const teacherTabs: { key: string; label: string; icon: IconName }[] = [
-  { key: 'home', label: 'Classroom', icon: 'book.closed' },
-  { key: 'assistant', label: 'Agent', icon: 'sparkles' },
-  { key: 'calendar', label: 'Calendar', icon: 'calendar' },
-  { key: 'profile', label: 'Profile', icon: 'person.fill' },
+const teacherTabs: PillTabItem[] = [
+  { key: 'home', label: 'Classroom', icon: 'search' },
+  { key: 'assistant', label: 'Agent', icon: 'planet' },
+  { key: 'calendar', label: 'Calendar', icon: 'compass' },
+  { key: 'profile', label: 'Profile', icon: 'library' },
 ];
+
+function FloatingPillNavBar({
+  tabs,
+  activeTab,
+  onSelectTab,
+  bottomInset = 16,
+}: {
+  tabs: PillTabItem[];
+  activeTab: string;
+  onSelectTab: (key: string) => void;
+  bottomInset?: number;
+}) {
+  const activeIndex = Math.max(0, tabs.findIndex((t) => t.key === activeTab));
+  const TAB_WIDTH = 52;
+  const PADDING_H = 6;
+  const INDICATOR_SIZE = 44;
+  const INDICATOR_OFFSET = PADDING_H + (TAB_WIDTH - INDICATOR_SIZE) / 2;
+
+  const slideAnim = useRef(new Animated.Value(activeIndex * TAB_WIDTH)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: activeIndex * TAB_WIDTH,
+        friction: 6.8,
+        tension: 55,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.90,
+          duration: 70,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1.0,
+          friction: 4.5,
+          tension: 65,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]),
+    ]).start();
+  }, [activeIndex]);
+
+  const renderIcon = (type: PillIconType, isSelected: boolean) => {
+    const iconColor = isSelected ? '#000000' : 'rgba(255, 255, 255, 0.85)';
+    switch (type) {
+      case 'search':
+        return <NavSearchIcon color={iconColor} size={20} />;
+      case 'compass':
+        return <NavCompassIcon color={iconColor} size={21} />;
+      case 'planet':
+        return <NavPlanetIcon color={iconColor} size={22} />;
+      case 'library':
+        return <NavLibraryIcon color={iconColor} size={21} />;
+      default:
+        return <NavSearchIcon color={iconColor} size={20} />;
+    }
+  };
+
+  const pillWidth = tabs.length * TAB_WIDTH + PADDING_H * 2;
+
+  return (
+    <View
+      style={[
+        styles.pillDockWrapper,
+        { bottom: Math.max(bottomInset, 18) },
+      ]}
+      pointerEvents="box-none"
+    >
+      <View
+        style={[
+          styles.pillDockContainer,
+          { width: pillWidth },
+        ]}
+      >
+        {/* Animated Sliding White Circle Indicator */}
+        <Animated.View
+          style={[
+            styles.pillActiveIndicator,
+            {
+              left: INDICATOR_OFFSET,
+              transform: [
+                { translateX: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        />
+
+        {/* Tab Buttons Row */}
+        <View style={styles.pillTabsRow}>
+          {tabs.map((t) => {
+            const isSelected = t.key === activeTab;
+            return (
+              <Pressable
+                key={t.key}
+                accessibilityRole="tab"
+                accessibilityLabel={t.label}
+                accessibilityState={{ selected: isSelected }}
+                onPress={() => onSelectTab(t.key)}
+                style={({ pressed }) => [
+                  styles.pillTabButton,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.94 }] },
+                ]}
+              >
+                {renderIcon(t.icon, isSelected)}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
 
 function Workspace({
   profile,
@@ -362,6 +546,27 @@ function Workspace({
         return <Notifications />;
       case 'jobs':
         return <Jobs />;
+      case 'profile':
+        return (
+          <View style={s.stack}>
+            <Card>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Label>{profile.role === 'teacher' ? 'Faculty Member' : 'Student Scholar'}</Label>
+                <Pill tone={profile.role === 'teacher' ? 'green' : 'blue'}>
+                  {profile.role === 'teacher' ? 'Teacher' : 'Student'}
+                </Pill>
+              </View>
+              <Heading>{profile.name}</Heading>
+              <Body>University of the Philippines Diliman · Asia/Manila</Body>
+            </Card>
+            <Card>
+              <Row title="Your consultations" icon="calendar" onPress={() => open('book')} />
+              <Row title="Notification center" icon="bell" onPress={() => open('notifications')} />
+              <Row title="About ClassAssist" icon="sparkles" onPress={() => open('about')} />
+            </Card>
+            <Button title="Sign out" secondary busy={busy} onPress={() => act(onLogout)} />
+          </View>
+        );
       default:
         return (
           <Card>
@@ -465,14 +670,26 @@ function Workspace({
                   : tabs.find((t) => t.key === tab)?.label}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open notifications"
-              onPress={() => open('notifications')}
-              style={styles.bell}
-            >
-              <Icon name="bell" />
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open notifications"
+                onPress={() => open('notifications')}
+                style={styles.bell}
+              >
+                <Icon name="bell" />
+              </Pressable>
+              {profile.role === 'student' && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open profile"
+                  onPress={() => setModal({ kind: 'profile' })}
+                  style={styles.bell}
+                >
+                  <Icon name="person.fill" />
+                </Pressable>
+              )}
+            </View>
           </View>
         )}
         {tab === 'agent' ? (
@@ -492,82 +709,17 @@ function Workspace({
           </ScrollView>
         )}
         {tab !== 'agent' && (
-          <View style={[styles.dockWrap, { bottom: Math.max(insets.bottom, 16) }]}>
-            {/* Single Unified Frosted Glass Capsule Navbar */}
-            <View style={styles.dockContainer}>
-              <BlurView intensity={Platform.OS === 'ios' ? 80 : 50} tint="light" style={styles.dock}>
-                {tabs.map((t) => {
-                  const isSelected = tab === t.key || (tab === 'classes' && profile.role === 'teacher' && t.key === 'home');
-                  const isAgent = t.key === 'agent' || t.key === 'assistant';
-                  const activeColor = profile.role === 'teacher' ? '#811212' : '#111827';
-                  return (
-                    <Pressable
-                      key={t.key}
-                      accessibilityRole="tab"
-                      accessibilityLabel={t.label}
-                      accessibilityState={{ selected: isSelected }}
-                      onPress={() => {
-                        setTab(t.key);
-                        setMessage('');
-                        setError('');
-                        refresh();
-                      }}
-                      style={({ pressed }) => [
-                        styles.tabPressable,
-                        pressed && styles.tabPressed,
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.tabContent,
-                          isAgent
-                            ? {
-                                backgroundColor: isSelected ? '#000000' : '#111827',
-                                paddingHorizontal: 16,
-                                paddingVertical: 7,
-                                borderRadius: 22,
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.22,
-                                shadowRadius: 8,
-                                elevation: 5,
-                              }
-                            : isSelected
-                            ? [
-                                styles.activeTabChip,
-                                profile.role === 'teacher' && { backgroundColor: 'rgba(129, 18, 18, 0.08)' },
-                              ]
-                            : null,
-                        ]}
-                      >
-                        <Icon
-                          name={t.icon}
-                          size={isAgent ? 21 : 22}
-                          color={isAgent ? '#FFFFFF' : isSelected ? activeColor : '#6B7280'}
-                        />
-                        <Text
-                          style={[
-                            styles.tabLabel,
-                            isAgent
-                              ? { color: '#FFFFFF', fontWeight: '700', fontSize: 11 }
-                              : isSelected
-                              ? [
-                                  styles.activeTabLabel,
-                                  profile.role === 'teacher' && { color: activeColor, fontWeight: '700' },
-                                ]
-                              : styles.inactiveTabLabel,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {t.label}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </BlurView>
-            </View>
-          </View>
+          <FloatingPillNavBar
+            tabs={tabs}
+            activeTab={tab === 'classes' && profile.role === 'teacher' ? 'home' : tab}
+            onSelectTab={(selectedKey) => {
+              setTab(selectedKey);
+              setMessage('');
+              setError('');
+              refresh();
+            }}
+            bottomInset={insets.bottom}
+          />
         )}
           </>
         )}
@@ -675,119 +827,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dockWrap: {
+  pillDockWrapper: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
+    left: 0,
+    right: 0,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
   },
-  dockContainer: {
-    flex: 1,
-    maxWidth: 440,
-    height: 68,
-    borderRadius: 34,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+  pillDockContainer: {
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    borderTopColor: 'rgba(255, 255, 255, 0.90)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 28,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.40,
+    shadowRadius: 24,
+    elevation: 12,
     ...(Platform.OS === 'web'
       ? {
-          backdropFilter: 'blur(28px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+          boxShadow: '0 14px 38px -4px rgba(0, 0, 0, 0.55), 0 4px 14px -2px rgba(0, 0, 0, 0.35)',
+        }
+      : {}),
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  pillActiveIndicator: {
+    position: 'absolute',
+    top: 6,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow: '0 3px 8px rgba(0, 0, 0, 0.22)',
         }
       : {}),
   },
-  dock: {
-    flex: 1,
+  pillTabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 6,
     height: '100%',
   },
-  tabPressable: {
-    flex: 1,
-    height: '100%',
+  pillTabButton: {
+    width: 52,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
-  },
-  tabPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.95 }],
-  },
-  tabContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 22,
-    minWidth: 44,
-    gap: 3.5,
-  },
-  activeTabChip: {
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
-    paddingHorizontal: 14,
-  },
-  tabLabel: {
-    fontSize: 11,
-    letterSpacing: -0.2,
-  },
-  activeTabLabel: {
-    color: '#111827',
-    fontWeight: '600',
-  },
-  inactiveTabLabel: {
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  moreWrap: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.75)',
-    borderTopColor: 'rgba(255, 255, 255, 0.90)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 28,
-    elevation: 8,
-    ...(Platform.OS === 'web'
-      ? {
-          backdropFilter: 'blur(28px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
-        }
-      : {}),
-  },
-  moreBlur: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreButton: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 44,
-  },
-  moreButtonPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.94 }],
+    zIndex: 2,
   },
   modalTop: {
     flexDirection: 'row',
