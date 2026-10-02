@@ -8,6 +8,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { pool, one, transaction, lockPeople, audit } from './db.js';
 import { authenticate, role, classAccess } from './auth.js';
+import { issueSession, revokeSession } from './sessions.js';
+import { googleCalendarRouter, googleCalendarCallbackRouter } from './google-calendar-routes.js';
 import {
   AppError,
   uuid,
@@ -219,7 +221,7 @@ app.post(
 
     return {
       ok: true,
-      token: account.id,
+      token: await issueSession(account.id),
       account: publicAccount,
       profile,
     };
@@ -320,14 +322,20 @@ app.post(
 
       return {
         ok: true,
-        token: account.id,
+        token: await issueSession(account.id, db),
         account,
         profile,
       };
     });
   }),
 );
+app.use('/api/oauth/google-calendar', googleCalendarCallbackRouter);
 app.use('/api', authenticate);
+app.post('/api/auth/logout', route(async (req) => {
+  await revokeSession(req.headers.authorization.slice(7));
+  return { ok: true };
+}));
+app.use('/api/google-calendar', googleCalendarRouter);
 app.get(
   '/api/me',
   route(async (req) => req.user),

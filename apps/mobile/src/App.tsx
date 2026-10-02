@@ -177,6 +177,7 @@ function Root() {
       profile={profile}
       onLogout={async () => {
         try {
+          await request('/auth/logout', {}).catch(() => undefined);
           await setAuthToken(null);
           const client = authClient();
           if (client?.auth) {

@@ -343,8 +343,7 @@ export function Ring({ value, total }: { value: number; total: number }) {
           strokeWidth={5}
           strokeDasharray={`${pct * 169.65} 169.65`}
           strokeLinecap="round"
-          rotation={-90}
-          origin="32,32"
+          transform="rotate(-90 32 32)"
         />
       </Svg>
       <Text style={{ fontSize: 15, fontWeight: '700' }}>{Math.round(pct * 100)}%</Text>
@@ -387,8 +386,7 @@ export function ProgressRing({
           strokeWidth={strokeWidth}
           strokeDasharray={`${pct * c} ${c}`}
           strokeLinecap="round"
-          rotation={-90}
-          origin={`${size / 2}, ${size / 2}`}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
     </View>

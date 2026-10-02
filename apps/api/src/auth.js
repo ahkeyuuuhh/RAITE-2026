@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { pool, one } from './db.js';
 import { fail } from './domain.js';
+import { tokenHash } from './sessions.js';
 let authClient;
 export function supabaseAuth() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,13 +19,14 @@ export async function authenticate(req, res, next) {
     const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
     if (!token) fail('UNAUTHENTICATED', 'Sign in to continue.', 401);
 
-    // 1. Direct application account/profile lookup
-    const profile = await one(
+    // Account IDs are public identifiers, never bearer credentials.
+    const profile = token.startsWith('ca_') ? await one(
       pool,
       `select p.*, coalesce(s.name, a.school_name, '') as school_name, coalesce(a.department, '') as department, coalesce(nullif(a.faculty_id, ''), p.employee_number, '') as faculty_id, coalesce(nullif(a.student_id, ''), p.student_number, '') as student_id, coalesce(a.course, '') as course, coalesce(a.year_level, '') as year_level from classassist.profiles p join classassist.accounts a on a.id = p.id left join classassist.schools s on s.id = p.school_id
-       where a.id::text = $1`,
-      [token],
-    );
+       join classassist.app_sessions sess on sess.user_id=p.id
+       where sess.token_hash=$1 and sess.expires_at>now()`,
+      [tokenHash(token)],
+    ) : null;
     if (profile) {
       req.user = profile;
       return next();
@@ -32,6 +34,7 @@ export async function authenticate(req, res, next) {
 
     // 2. Supabase Auth fallback
     try {
+      if (token.split('.').length !== 3) fail('UNAUTHENTICATED', 'Please sign in again.', 401);
       const { data, error } = await supabaseAuth().auth.getUser(token);
       if (!error && data?.user && !data.user.is_anonymous) {
         const supaProfile = await one(pool, 'select * from classassist.profiles where id=$1', [
