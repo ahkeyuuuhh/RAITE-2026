@@ -34,26 +34,22 @@ import {
   type IconName,
 } from './ui';
 import {
-  Availability,
   Calendar,
   ClassDetail,
   Classes,
   Consultations,
   Home,
-  TeacherHomeScreen,
   StudentHomeScreen,
   StudentReviewScreen,
   StudentAgentScreen,
-  Jobs,
   Notifications,
   Roster,
 } from './screens';
-import { CreateDraft, Quiz, Review, Submissions } from './assessment-screens';
+import { Quiz } from './assessment-screens';
 import { QuizGeneratorScreen } from './quiz-generator-modal';
 import { DocumentSummarizerScreen } from './document-summarizer-modal';
 import { AudioBitesScreen } from './audio-bites-modal';
 import { AuthFlow } from './auth-flow';
-import { ProfessorProfileScreen } from './professor-profile';
 import type { Assessment, Config, Notice, Profile } from './types';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -267,13 +263,6 @@ const studentTabs: PillTabItem[] = [
   { key: 'calendar', label: 'Calendar', icon: 'library' },
 ];
 
-const teacherTabs: PillTabItem[] = [
-  { key: 'home', label: 'Classroom', icon: 'search' },
-  { key: 'assistant', label: 'Agent', icon: 'planet' },
-  { key: 'calendar', label: 'Calendar', icon: 'compass' },
-  { key: 'profile', label: 'Profile', icon: 'library' },
-];
-
 function FloatingPillNavBar({
   tabs,
   activeTab,
@@ -399,15 +388,14 @@ function Workspace({
   config: Config;
   onLogout: () => Promise<void>;
 }) {
-  const tabs = profile.role === 'student' ? studentTabs : teacherTabs;
+  const tabs = studentTabs;
   const [tab, setTab] = useState('home'),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     [error, setError] = useState(''),
     [modal, setModal] = useState<{ kind: string; id?: string }>(),
-    [standaloneScreen, setStandaloneScreen] = useState<string | null>(null),
-    [professorClassId, setProfessorClassId] = useState<string>();
+    [standaloneScreen, setStandaloneScreen] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
   const open = useCallback((kind: string, id?: string) => {
@@ -429,13 +417,8 @@ function Workspace({
       setTab('agent');
       return;
     }
-    if (kind === 'class' && profile.role === 'teacher' && id) {
-      setModal(undefined);
-      setProfessorClassId(id);
-      return;
-    }
     setModal({ kind, id });
-  }, [profile.role]);
+  }, []);
   const act = async <T,>(fn: () => Promise<T>, success?: string): Promise<T | undefined> => {
     if (busy) return;
     setBusy(true);
@@ -473,7 +456,7 @@ function Workspace({
   );
   const content = () => {
     if (tab === 'home') {
-      return profile.role === 'teacher' ? <TeacherHomeScreen onCreateClass={() => setTab('classes')} /> : <StudentHomeScreen />;
+      return <StudentHomeScreen />;
     }
     if (tab === 'review') {
       return <StudentReviewScreen />;
@@ -485,40 +468,25 @@ function Workspace({
       return <Classes />;
     }
     if (tab === 'assistant') {
-      return profile.role === 'teacher' ? <TeacherStudio /> : <Consultations />;
+      return <Consultations />;
     }
     if (tab === 'calendar') {
       return <Calendar />;
-    }
-    if (tab === 'profile' && profile.role === 'teacher') {
-      return <ProfessorProfileScreen onLogout={onLogout} />;
     }
     return (
       <View style={s.stack}>
         <Card>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Label>{profile.role === 'teacher' ? 'Faculty Member' : 'Student Scholar'}</Label>
-            <Pill tone={profile.role === 'teacher' ? 'green' : 'blue'}>
-              {profile.role === 'teacher' ? 'Teacher' : 'Student'}
-            </Pill>
+            <Label>Student Scholar</Label>
+            <Pill tone="blue">Student</Pill>
           </View>
           <Heading>{profile.name}</Heading>
-          <Body>University of the Philippines Diliman · Asia/Manila</Body>
+          <Body>{profile.school_name || 'University of the Philippines Diliman'} · Asia/Manila</Body>
         </Card>
         <Card>
           <Row title="Your consultations" icon="calendar" onPress={() => open('book')} />
           <Row title="Notification center" icon="bell" onPress={() => open('notifications')} />
-          {profile.role === 'teacher' && (
-            <>
-              <Row
-                title="Consultation availability"
-                icon="clock"
-                onPress={() => open('availability')}
-              />
-              <Row title="Publication activity" icon="doc.text" onPress={() => open('jobs')} />
-            </>
-          )}
-          <Row title="About ClassAssist" icon="sparkles" onPress={() => open('about')} />
+          <Row title="About Aider" icon="sparkles" onPress={() => open('about')} />
         </Card>
         <Button title="Sign out" secondary busy={busy} onPress={() => act(onLogout)} />
       </View>
@@ -533,37 +501,25 @@ function Workspace({
         return <Roster classId={modal.id!} />;
       case 'book':
         return <Consultations />;
-      case 'create-draft':
-        return <CreateDraft classId={modal.id} />;
-      case 'review':
-        return <Review id={modal.id!} />;
       case 'quiz':
         return <Quiz id={modal.id!} />;
-      case 'submissions':
-        return <Submissions id={modal.id!} />;
-      case 'availability':
-        return <Availability />;
       case 'notifications':
         return <Notifications />;
-      case 'jobs':
-        return <Jobs />;
       case 'profile':
         return (
           <View style={s.stack}>
             <Card>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Label>{profile.role === 'teacher' ? 'Faculty Member' : 'Student Scholar'}</Label>
-                <Pill tone={profile.role === 'teacher' ? 'green' : 'blue'}>
-                  {profile.role === 'teacher' ? 'Teacher' : 'Student'}
-                </Pill>
+                <Label>Student Scholar</Label>
+                <Pill tone="blue">Student</Pill>
               </View>
               <Heading>{profile.name}</Heading>
-              <Body>University of the Philippines Diliman · Asia/Manila</Body>
+              <Body>{profile.school_name || 'University of the Philippines Diliman'} · Asia/Manila</Body>
             </Card>
             <Card>
               <Row title="Your consultations" icon="calendar" onPress={() => open('book')} />
               <Row title="Notification center" icon="bell" onPress={() => open('notifications')} />
-              <Row title="About ClassAssist" icon="sparkles" onPress={() => open('about')} />
+              <Row title="About Aider" icon="sparkles" onPress={() => open('about')} />
             </Card>
             <Button title="Sign out" secondary busy={busy} onPress={() => act(onLogout)} />
           </View>
@@ -573,17 +529,13 @@ function Workspace({
           <Card>
             <Heading>Room for learning.</Heading>
             <Body>
-              ClassAssist helps students book time with teachers and helps teachers prepare reviewed
-              assessments.
+              Aider helps students study, explore lessons, book consultations, and stay on track with class assessments.
             </Body>
             <Body>
-              AI drafts need teacher review. Sample drafts are labeled. Server-confirmed saves and
-              receipts are authoritative. Notifications are in-app; background device push is not
-              enabled.
+              Server-confirmed saves and receipts are authoritative. Notifications are in-app; background device push is not enabled.
             </Body>
             <Body>
-              Demo accounts are fictional. This app does not capture your screen, clipboard, or
-              camera.
+              Demo accounts are fictional. This app does not capture your screen, clipboard, or camera.
             </Body>
           </Card>
         );
@@ -642,32 +594,18 @@ function Workspace({
     );
   }
 
-  const isProfessorClassroom = profile.role === 'teacher' && Boolean(professorClassId);
   return (
     <AppContext.Provider value={{ profile, config, revision, refresh, busy, act, open }}>
       <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-        {isProfessorClassroom ? (
-          <View style={{ flex: 1 }}>
-            {notice}
-            <ClassDetail
-              classId={professorClassId!}
-              {...({ onBack: () => setProfessorClassId(undefined) } as any)}
-            />
-          </View>
-        ) : (
-          <>
-        {tab !== 'agent' && !(tab === 'home' && profile.role === 'teacher') && !(tab === 'profile' && profile.role === 'teacher') && (
+        {tab !== 'agent' && (
           <View style={styles.top}>
             <View>
-              <Label>{profile.role === 'teacher' ? 'Teacher workspace' : 'Student workspace'}</Label>
+              <Label>Student workspace</Label>
               <Text style={styles.title}>
                 {tab === 'classes'
                   ? 'Classes'
                   : tab === 'home'
-                  ? `Hello, ${profile.name
-                      .split(' ')
-                      .slice(0, profile.role === 'teacher' ? 2 : 1)
-                      .join(' ')}.`
+                  ? `Hello, ${profile.name.split(' ')[0]}.`
                   : tabs.find((t) => t.key === tab)?.label}
               </Text>
             </View>
@@ -680,16 +618,14 @@ function Workspace({
               >
                 <Icon name="bell" />
               </Pressable>
-              {profile.role === 'student' && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open profile"
-                  onPress={() => setModal({ kind: 'profile' })}
-                  style={styles.bell}
-                >
-                  <Icon name="person.fill" />
-                </Pressable>
-              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open profile"
+                onPress={() => setModal({ kind: 'profile' })}
+                style={styles.bell}
+              >
+                <Icon name="person.fill" />
+              </Pressable>
             </View>
           </View>
         )}
@@ -712,7 +648,7 @@ function Workspace({
         {tab !== 'agent' && (
           <FloatingPillNavBar
             tabs={tabs}
-            activeTab={tab === 'classes' && profile.role === 'teacher' ? 'home' : tab}
+            activeTab={tab}
             onSelectTab={(selectedKey) => {
               setTab(selectedKey);
               setMessage('');
@@ -721,8 +657,6 @@ function Workspace({
             }}
             bottomInset={insets.bottom}
           />
-        )}
-          </>
         )}
         <Modal
           visible={Boolean(modal)}
@@ -734,7 +668,7 @@ function Workspace({
         >
           <SafeAreaView style={styles.root}>
             <View style={styles.modalTop}>
-              <Text style={s.label}>CLASSASSIST</Text>
+              <Text style={s.label}>AIDER</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close panel"
@@ -761,28 +695,6 @@ function Workspace({
         </Modal>
       </SafeAreaView>
     </AppContext.Provider>
-  );
-}
-function TeacherStudio() {
-  const { data } = useRemote<Assessment[]>('/assessments');
-  const context = React.useContext(AppContext);
-  return (
-    <View style={s.stack}>
-      <Card>
-        <Icon name="sparkles" size={28} />
-        <Heading>Your teaching sidekick.</Heading>
-        <Body>Bring a lesson. Build a draft. Make it your own before it goes to class.</Body>
-        <Button title="Prepare an assessment" onPress={() => context.open('create-draft')} />
-      </Card>
-      <Heading>Assessment studio</Heading>
-      {data?.map((a) => (
-        <Card key={a.id}>
-          <Pill>{a.state}</Pill>
-          <Heading>{a.title}</Heading>
-          <Button title="Review draft" secondary onPress={() => context.open('review', a.id)} />
-        </Card>
-      ))}
-    </View>
   );
 }
 const styles = StyleSheet.create({

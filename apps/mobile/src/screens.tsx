@@ -29,7 +29,6 @@ import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect, Circle, SvgXml } from 'react-native-svg';
 import { Prism } from './Prism';
 import SquishSwitch from './SquishSwitch';
-import { ProfessorCalendar } from './professor-calendar';
 import {
   Body,
   Button,
@@ -76,222 +75,6 @@ export function RemoteState({ error, loading }: { error: string; loading: boolea
     <ActivityIndicator accessibilityLabel="Loading" style={{ padding: 24 }} />
   ) : null;
 }
-const professorAccent = '#811212';
-
-export function TeacherHomeScreen({ onCreateClass }: { onCreateClass: () => void }) {
-  const { profile, open } = useApp();
-  const { data: assessments } = useRemote<Assessment[]>('/assessments');
-  const { data: classes, error: classesError } = useRemote<Classroom[]>('/classes');
-  const [query, setQuery] = useState('');
-
-  const pendingReviews = new Map<string, number>();
-  for (const assessment of assessments || []) {
-    if (assessment.state === 'draft') {
-      pendingReviews.set(assessment.class_id, (pendingReviews.get(assessment.class_id) || 0) + 1);
-    }
-  }
-
-  // The existing /classes endpoint returns oldest first, so reverse its real data for Recent.
-  const visibleClasses = [...(classes || [])]
-    .reverse()
-    .filter((classroom) =>
-      [classroom.name, classroom.subject, classroom.description]
-        .join(' ')
-        .toLocaleLowerCase()
-        .includes(query.trim().toLocaleLowerCase()),
-    );
-  const initials =
-    profile.name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase() || 'P';
-
-  return (
-    <View style={s.stack}>
-      <View style={professorStyles.brandRow}>
-        <View style={professorStyles.brand}>
-          <Icon name="book.closed" size={28} color={professorAccent} />
-          <Text style={professorStyles.brandName}>ClassAssist</Text>
-        </View>
-        <View accessibilityLabel={profile.name + ' profile'} style={professorStyles.avatar}>
-          <Text style={professorStyles.avatarText}>{initials}</Text>
-        </View>
-      </View>
-
-      <View style={professorStyles.intro}>
-        <Text style={professorStyles.title}>Classroom</Text>
-        <Text style={professorStyles.subtitle}>Manage your classes, classwork, and students.</Text>
-      </View>
-
-      <View style={professorStyles.searchField}>
-        <Icon name="magnifyingglass" size={21} color={colors.muted} />
-        <TextInput
-          accessibilityLabel="Search classes, codes, or sections"
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search classes, codes, or sections..."
-          placeholderTextColor={colors.muted}
-          returnKeyType="search"
-          style={professorStyles.searchInput}
-        />
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={onCreateClass}
-        style={({ pressed }) => [professorStyles.createButton, pressed && { opacity: 0.82 }]}
-      >
-        <Icon name="plus" size={22} color="#FFFFFF" />
-        <Text style={professorStyles.createButtonText}>Create new class</Text>
-      </Pressable>
-
-      <View style={professorStyles.sectionHeader}>
-        <Heading>Your Classes</Heading>
-        <View style={professorStyles.sortLabel}>
-          <Text style={professorStyles.sortText}>Sort by Recent</Text>
-          <Icon name="chevron.down" size={14} color={colors.muted} />
-        </View>
-      </View>
-
-      <RemoteState error={classesError || ''} loading={!classes && !classesError} />
-      {visibleClasses.length ? (
-        visibleClasses.map((classroom) => (
-          <Pressable
-            key={classroom.id}
-            accessibilityRole="button"
-            accessibilityLabel={'Open ' + classroom.name}
-            onPress={() => open('class', classroom.id)}
-            style={({ pressed }) => [professorStyles.classCard, pressed && { opacity: 0.88 }]}
-          >
-            <View style={professorStyles.cardTop}>
-              <Text numberOfLines={1} style={professorStyles.subjectBadge}>
-                {classroom.subject}
-              </Text>
-              <Icon name="chevron.right" size={18} color={colors.muted} />
-            </View>
-            <Text style={professorStyles.classTitle}>{classroom.name}</Text>
-            {!!classroom.description && (
-              <Text numberOfLines={1} style={professorStyles.description}>
-                {classroom.description}
-              </Text>
-            )}
-            <View style={professorStyles.cardDivider} />
-            <View style={professorStyles.cardMeta}>
-              <View style={professorStyles.studentCount}>
-                <Icon name="person.2.fill" size={19} color={colors.muted} />
-                <Text style={professorStyles.metaText}>{classroom.member_count} students</Text>
-              </View>
-              {!!pendingReviews.get(classroom.id) && (
-                <View style={professorStyles.pendingReviews}>
-                  <Icon name="doc.text" size={18} color={professorAccent} />
-                  <Text numberOfLines={1} style={professorStyles.pendingText}>
-                    {pendingReviews.get(classroom.id)} pending reviews
-                  </Text>
-                </View>
-              )}
-            </View>
-          </Pressable>
-        ))
-      ) : classes && query.trim() ? (
-        <Text style={professorStyles.emptyText}>{'No classes match “' + query.trim() + '”.'}</Text>
-      ) : classes ? (
-        <Text style={professorStyles.emptyText}>No classes yet. Create your first class to get started.</Text>
-      ) : null}
-    </View>
-  );
-}
-
-const professorStyles = StyleSheet.create({
-  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  brandName: { color: colors.ink, fontSize: 22, fontWeight: '700', letterSpacing: -0.45 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F1F4',
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
-  intro: { gap: 3, marginTop: 5 },
-  title: { fontSize: 34, lineHeight: 41, fontWeight: '700', letterSpacing: -1.15, color: colors.ink },
-  subtitle: { fontSize: 16, lineHeight: 23, color: colors.muted },
-  searchField: {
-    minWidth: 0,
-    minHeight: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-  },
-  searchInput: { flex: 1, minWidth: 0, paddingVertical: 12, fontSize: 15, color: colors.ink },
-  createButton: {
-    minHeight: 58,
-    borderRadius: 16,
-    backgroundColor: professorAccent,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: -2,
-  },
-  createButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
-  sortLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  sortText: { color: colors.muted, fontSize: 14 },
-  classCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: 17,
-    gap: 9,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.035,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  subjectBadge: {
-    maxWidth: '82%',
-    overflow: 'hidden',
-    borderRadius: 9,
-    backgroundColor: '#F8E9E9',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    color: professorAccent,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  classTitle: { color: colors.ink, fontSize: 18, lineHeight: 24, fontWeight: '700', letterSpacing: -0.35 },
-  description: { color: colors.muted, fontSize: 14, lineHeight: 19 },
-  cardDivider: { height: 1, backgroundColor: colors.line, marginTop: 1 },
-  cardMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    minHeight: 24,
-  },
-  studentCount: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-  metaText: { color: colors.muted, fontSize: 14 },
-  pendingReviews: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 7, flex: 1, minWidth: 0 },
-  pendingText: { color: professorAccent, fontSize: 13, flexShrink: 1 },
-  emptyText: { color: colors.muted, fontSize: 15, lineHeight: 22, paddingVertical: 14 },
-});
 export function StudentHomeScreen() {
   const { open } = useApp();
   const [showQuizGenerator, setShowQuizGenerator] = useState(false);
@@ -3020,16 +2803,12 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
 }
 
 export function Home() {
-  const { profile } = useApp();
-  return profile.role === 'teacher' ? <TeacherHomeScreen onCreateClass={() => {}} /> : <StudentHomeScreen />;
+  return <StudentHomeScreen />;
 }
 export function Classes() {
-  const { profile, open, act, busy } = useApp();
+  const { open, act, busy } = useApp();
   const { data, error } = useRemote<Classroom[]>('/classes');
-  const [name, setName] = useState(''),
-    [subject, setSubject] = useState(''),
-    [code, setCode] = useState(''),
-    [invite, setInvite] = useState(''),
+  const [code, setCode] = useState(''),
     [preview, setPreview] = useState<{ id: string; name: string; subject: string }>();
   return (
     <View style={s.stack}>
@@ -3049,77 +2828,40 @@ export function Classes() {
         </Card>
       ))}
       <Card>
-        <Heading>{profile.role === 'teacher' ? 'Start a classroom' : 'Join your class'}</Heading>
-        {profile.role === 'teacher' ? (
-          <>
-            <Field
-              label="Class name"
-              value={name}
-              onChangeText={setName}
-              placeholder="Grade 10 · Newton"
-            />
-            <Field
-              label="Subject"
-              value={subject}
-              onChangeText={setSubject}
-              placeholder="Science"
-            />
+        <Heading>Join your class</Heading>
+        <Body>Enter the enrollment code from your teacher.</Body>
+        <Field
+          label="Enrollment code"
+          value={code}
+          onChangeText={(v) => {
+            setCode(v);
+            setPreview(undefined);
+          }}
+          autoCapitalize="characters"
+        />
+        <Button
+          title="Find class"
+          busy={busy}
+          onPress={() =>
+            act(async () => setPreview(await request('/classes/preview', { code })))
+          }
+        />
+        {preview && (
+          <View style={s.stack}>
+            <Heading>{preview.name}</Heading>
+            <Body>{preview.subject}</Body>
             <Button
-              title="Create class"
+              title="Confirm and join"
               busy={busy}
               onPress={() =>
                 act(async () => {
-                  const c = await request<{ code: string }>('/classes', { name, subject });
-                  setInvite(c.code);
-                  setName('');
-                  setSubject('');
-                }, 'Class created.')
+                  await request('/classes/join', { code, classId: preview.id });
+                  setPreview(undefined);
+                  setCode('');
+                }, 'You joined the class.')
               }
             />
-            {invite && (
-              <Body>
-                Enrollment code: {invite}
-                {'\n'}Share with your students. Valid for 7 days.
-              </Body>
-            )}
-          </>
-        ) : (
-          <>
-            <Body>Enter the enrollment code from your teacher.</Body>
-            <Field
-              label="Enrollment code"
-              value={code}
-              onChangeText={(v) => {
-                setCode(v);
-                setPreview(undefined);
-              }}
-              autoCapitalize="characters"
-            />
-            <Button
-              title="Find class"
-              busy={busy}
-              onPress={() =>
-                act(async () => setPreview(await request('/classes/preview', { code })))
-              }
-            />
-            {preview && (
-              <View style={s.stack}>
-                <Heading>{preview.name}</Heading>
-                <Body>{preview.subject}</Body>
-                <Button
-                  title="Confirm and join"
-                  busy={busy}
-                  onPress={() =>
-                    act(async () => {
-                      await request('/classes/join', { code, classId: preview.id });
-                      setPreview(undefined);
-                      setCode('');
-                    }, 'You joined the class.')
-                  }
-                />
-              </View>
-            )}
-          </>
+          </View>
         )}
       </Card>
     </View>
@@ -3132,23 +2874,9 @@ export function ClassDetail({
   classId: string;
   onBack?: () => void;
 }) {
-  const { profile } = useApp();
   const { data: classes } = useRemote<Classroom[]>('/classes');
   const { data: all, error } = useRemote<Assessment[]>('/assessments');
   const c = classes?.find((x) => x.id === classId);
-  if (profile.role === 'teacher') {
-    return (
-      <ProfessorClassroomPage
-        key={classId}
-        classId={classId}
-        classroom={c}
-        assessments={all?.filter((assessment) => assessment.class_id === classId) || []}
-        assessmentsError={error}
-        assessmentsLoading={!all && !error}
-        onBack={onBack}
-      />
-    );
-  }
   return (
     <View style={s.stack}>
       <Label>{c?.subject || 'Classroom'}</Label>
@@ -3171,452 +2899,8 @@ export function ClassDetail({
   );
 }
 
-type ProfessorClassTab = 'stream' | 'classwork' | 'students';
-
-function ProfessorClassroomPage({
-  classId,
-  classroom,
-  assessments,
-  assessmentsError,
-  assessmentsLoading,
-  onBack,
-}: {
-  classId: string;
-  classroom?: Classroom;
-  assessments: Assessment[];
-  assessmentsError?: string;
-  assessmentsLoading: boolean;
-  onBack?: () => void;
-}) {
-  const { open, act, busy, refresh } = useApp();
-  const [tab, setTab] = useState<ProfessorClassTab>('stream');
-  const [code, setCode] = useState<string>();
-  const [removingStudent, setRemovingStudent] = useState('');
-  const {
-    data: members,
-    error: membersError,
-  } = useRemote<Profile[]>(`/classes/${classId}/members`);
-
-  const tabs: { key: ProfessorClassTab; label: string }[] = [
-    { key: 'stream', label: 'Stream' },
-    { key: 'classwork', label: 'Classwork' },
-    { key: 'students', label: 'Students' },
-  ];
-  const announced = assessments
-    .filter((assessment) => assessment.state === 'announced')
-    .sort((a, b) => +new Date(b.announce_at) - +new Date(a.announce_at));
-
-  return (
-    <View style={classroomStyles.root}>
-      <View style={classroomStyles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to Classroom"
-          onPress={onBack}
-          style={({ pressed }) => [classroomStyles.backButton, pressed && { opacity: 0.65 }]}
-        >
-          <Icon name="arrow.left" size={21} />
-        </Pressable>
-        <View style={classroomStyles.classInfo}>
-          <Text style={classroomStyles.eyebrow}>CLASSROOM</Text>
-          <Text style={classroomStyles.subject} numberOfLines={1}>
-            {classroom?.subject || 'Your class'}
-          </Text>
-          <Text style={classroomStyles.className} numberOfLines={2}>
-            {classroom?.name || 'Classroom'}
-          </Text>
-          {!!classroom?.description && (
-            <Text style={classroomStyles.description} numberOfLines={1}>
-              {classroom.description}
-            </Text>
-          )}
-        </View>
-      </View>
-
-      <View accessibilityRole="tablist" style={classroomStyles.tabs}>
-        {tabs.map((item) => {
-          const selected = tab === item.key;
-          return (
-            <Pressable
-              key={item.key}
-              accessibilityRole="tab"
-              accessibilityLabel={item.label}
-              accessibilityState={{ selected }}
-              onPress={() => setTab(item.key)}
-              style={classroomStyles.tab}
-            >
-              <Text style={[classroomStyles.tabText, selected && classroomStyles.activeTabText]}>
-                {item.label}
-              </Text>
-              <View style={[classroomStyles.tabIndicator, selected && classroomStyles.activeIndicator]} />
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <ScrollView
-        key={tab}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}
-        contentContainerStyle={classroomStyles.content}
-      >
-        {tab === 'stream' && (
-          <View style={classroomStyles.section}>
-            <Text style={classroomStyles.sectionTitle}>Recent updates</Text>
-            {assessmentsError ? (
-              <ClassroomLoadError message={assessmentsError} onRetry={refresh} />
-            ) : assessmentsLoading ? (
-              <ActivityIndicator accessibilityLabel="Loading updates" color={professorAccent} style={classroomStyles.loader} />
-            ) : announced.length ? (
-              announced.map((assessment) => (
-                <Pressable
-                  key={assessment.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Review ${assessment.title}`}
-                  onPress={() => open('review', assessment.id)}
-                  style={({ pressed }) => [classroomStyles.feedItem, pressed && { opacity: 0.75 }]}
-                >
-                  <View style={classroomStyles.feedMeta}>
-                    <Text style={classroomStyles.feedKind}>Assessment posted</Text>
-                    <Text style={classroomStyles.feedDate}>{dateText(assessment.announce_at)}</Text>
-                  </View>
-                  <Text style={classroomStyles.itemTitle}>{assessment.title}</Text>
-                  {!!assessment.announcement && (
-                    <Text style={classroomStyles.itemBody}>{assessment.announcement}</Text>
-                  )}
-                  <Text style={classroomStyles.feedDue}>
-                    Closes {dateText(assessment.closes_at)}
-                  </Text>
-                </Pressable>
-              ))
-            ) : (
-              <ClassroomEmpty
-                title="Nothing posted yet"
-                body="Announcements and class updates will appear here."
-              />
-            )}
-          </View>
-        )}
-
-        {tab === 'classwork' && (
-          <View style={classroomStyles.section}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => open('create-draft', classId)}
-              style={({ pressed }) => [classroomStyles.createAction, pressed && { opacity: 0.72 }]}
-            >
-              <Icon name="plus" size={18} color={professorAccent} />
-              <Text style={classroomStyles.createActionText}>Prepare an assessment</Text>
-            </Pressable>
-            <Text style={classroomStyles.sectionTitle}>Classwork</Text>
-            {assessmentsError ? (
-              <ClassroomLoadError message={assessmentsError} onRetry={refresh} />
-            ) : assessmentsLoading ? (
-              <ActivityIndicator accessibilityLabel="Loading classwork" color={professorAccent} style={classroomStyles.loader} />
-            ) : assessments.length ? (
-              assessments.map((assessment) => (
-                <Pressable
-                  key={assessment.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Review assessment ${assessment.title}`}
-                  onPress={() => open('review', assessment.id)}
-                  style={({ pressed }) => [classroomStyles.workItem, pressed && { opacity: 0.75 }]}
-                >
-                  <View style={classroomStyles.workIcon}>
-                    <Icon name="doc.text" size={20} color={professorAccent} />
-                  </View>
-                  <View style={classroomStyles.workText}>
-                    <Text style={classroomStyles.itemTitle} numberOfLines={2}>
-                      {assessment.title}
-                    </Text>
-                    <Text style={classroomStyles.itemBody} numberOfLines={1}>
-                      Assessment · {assessment.state}
-                    </Text>
-                    <Text style={classroomStyles.workDue}>
-                      Closes {dateText(assessment.closes_at)}
-                    </Text>
-                  </View>
-                  <Icon name="chevron.right" size={17} color={colors.muted} />
-                </Pressable>
-              ))
-            ) : (
-              <ClassroomEmpty
-                title="No classwork yet"
-                body="Assessments prepared for this class will appear here."
-              />
-            )}
-          </View>
-        )}
-
-        {tab === 'students' && (
-          <View style={classroomStyles.section}>
-            <View style={classroomStyles.studentsHeading}>
-              <Text style={classroomStyles.sectionTitle}>Students</Text>
-              <Text style={classroomStyles.studentCount}>
-                {members ? members.length : classroom?.member_count || 0} students
-              </Text>
-            </View>
-
-            <View style={classroomStyles.codePanel}>
-              <View style={classroomStyles.codeText}>
-                <Text style={classroomStyles.codeTitle}>Enrollment code</Text>
-                <Text style={classroomStyles.codeHint}>
-                  {code ? 'Valid for 7 days · Select to copy' : 'Generate a code to invite students'}
-                </Text>
-                {code && <Text selectable style={classroomStyles.codeValue}>{code}</Text>}
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={code ? 'Generate a new enrollment code' : 'Generate enrollment code'}
-                disabled={busy}
-                onPress={() =>
-                  act(async () => {
-                    const result = await request<{ code: string }>(`/classes/${classId}/code`, {});
-                    setCode(result.code);
-                  }, code ? 'Enrollment code replaced.' : 'Enrollment code generated.')
-                }
-                style={({ pressed }) => [classroomStyles.codeButton, pressed && { opacity: 0.7 }, busy && { opacity: 0.5 }]}
-              >
-                <Text style={classroomStyles.codeButtonText}>{code ? 'Regenerate' : 'Generate'}</Text>
-              </Pressable>
-              {code && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() =>
-                    act(async () => {
-                      await request(`/classes/${classId}/code`, { revoke: true });
-                      setCode(undefined);
-                    }, 'Enrollment code revoked.')
-                  }
-                  style={classroomStyles.revokeButton}
-                >
-                  <Text style={classroomStyles.revokeText}>Revoke</Text>
-                </Pressable>
-              )}
-            </View>
-
-            {membersError ? (
-              <ClassroomLoadError message={membersError} onRetry={refresh} />
-            ) : !members ? (
-              <ActivityIndicator accessibilityLabel="Loading students" color={professorAccent} style={classroomStyles.loader} />
-            ) : members.length ? (
-              <View style={classroomStyles.roster}>
-                {members.map((member) => {
-                  const initials = member.name
-                    .trim()
-                    .split(/\s+/)
-                    .slice(0, 2)
-                    .map((part) => part[0])
-                    .join('')
-                    .toUpperCase() || '?';
-                  const identifier = member.student_number || member.student_id || member.email;
-                  const confirming = removingStudent === member.id;
-                  return (
-                    <View key={member.id} style={classroomStyles.studentRow}>
-                      <View style={classroomStyles.studentAvatar}>
-                        <Text style={classroomStyles.studentInitials}>{initials}</Text>
-                      </View>
-                      <View style={classroomStyles.studentInfo}>
-                        <Text style={classroomStyles.studentName} numberOfLines={1}>{member.name}</Text>
-                        {!!identifier && <Text style={classroomStyles.studentIdentifier} numberOfLines={1}>{identifier}</Text>}
-                        {confirming ? (
-                          <View style={classroomStyles.confirmRemoval}>
-                            <Text style={classroomStyles.confirmCopy}>
-                              Removing this student revokes class access. Existing consultation bookings remain until canceled.
-                            </Text>
-                            <View style={classroomStyles.confirmActions}>
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled={busy}
-                                onPress={() =>
-                                  act(async () => {
-                                    await request(`/classes/${classId}/members/${member.id}`, undefined, true, 'DELETE');
-                                    setRemovingStudent('');
-                                  }, 'Student removed.')
-                                }
-                                style={classroomStyles.confirmRemoveButton}
-                              >
-                                <Text style={classroomStyles.revokeText}>Confirm removal</Text>
-                              </Pressable>
-                              <Pressable onPress={() => setRemovingStudent('')}>
-                                <Text style={classroomStyles.keepText}>Keep student</Text>
-                              </Pressable>
-                            </View>
-                          </View>
-                        ) : null}
-                      </View>
-                      {!confirming && (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Remove ${member.name}`}
-                          onPress={() => setRemovingStudent(member.id)}
-                          style={classroomStyles.removeButton}
-                        >
-                          <Text style={classroomStyles.removeText}>Remove</Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <ClassroomEmpty
-                title="No students yet"
-                body="Share the enrollment code to welcome students to this class."
-              />
-            )}
-          </View>
-        )}
-      </ScrollView>
-    </View>
-  );
-}
-
-function ClassroomEmpty({ title, body }: { title: string; body: string }) {
-  return (
-    <View style={classroomStyles.emptyState}>
-      <Text style={classroomStyles.emptyTitle}>{title}</Text>
-      <Text style={classroomStyles.emptyBody}>{body}</Text>
-    </View>
-  );
-}
-
-function ClassroomLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <View style={classroomStyles.loadError}>
-      <Text style={classroomStyles.errorText}>{message}</Text>
-      <Pressable accessibilityRole="button" onPress={onRetry}>
-        <Text style={classroomStyles.retryText}>Try again</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-const classroomStyles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingTop: 8,
-    paddingHorizontal: 20,
-    paddingBottom: 17,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  classInfo: { flex: 1, minWidth: 0, gap: 2 },
-  eyebrow: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1.1 },
-  subject: { color: professorAccent, fontSize: 13, lineHeight: 18, fontWeight: '700', marginTop: 2 },
-  className: { color: colors.ink, fontSize: 23, lineHeight: 28, fontWeight: '700', letterSpacing: -0.45 },
-  description: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 1 },
-  tabs: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.line,
-    paddingHorizontal: 15,
-  },
-  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 9 },
-  tabText: { color: '#68686E', fontSize: 14, fontWeight: '600' },
-  activeTabText: { color: professorAccent, fontWeight: '700' },
-  tabIndicator: { position: 'absolute', bottom: -1, left: 15, right: 15, height: 2, borderRadius: 2 },
-  activeIndicator: { backgroundColor: professorAccent },
-  content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 },
-  section: { gap: 14 },
-  sectionTitle: { color: colors.ink, fontSize: 19, lineHeight: 24, fontWeight: '700', letterSpacing: -0.25 },
-  feedItem: {
-    paddingVertical: 15,
-    paddingHorizontal: 16,
-    gap: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FFFFFF',
-  },
-  feedMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  feedKind: { color: professorAccent, fontSize: 12, fontWeight: '700' },
-  feedDate: { color: colors.muted, fontSize: 12 },
-  itemTitle: { color: colors.ink, fontSize: 16, lineHeight: 22, fontWeight: '600' },
-  itemBody: { color: '#5F6067', fontSize: 14, lineHeight: 20 },
-  feedDue: { color: colors.muted, fontSize: 12, marginTop: 1 },
-  createAction: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5CACA',
-    backgroundColor: '#FFF9F9',
-  },
-  createActionText: { color: professorAccent, fontSize: 14, fontWeight: '700' },
-  workItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  workIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FAF1F1', alignItems: 'center', justifyContent: 'center' },
-  workText: { flex: 1, minWidth: 0, gap: 3 },
-  workDue: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  emptyState: { paddingVertical: 18, paddingHorizontal: 2, gap: 4 },
-  emptyTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  emptyBody: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  loader: { paddingVertical: 28 },
-  studentsHeading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  studentCount: { color: colors.muted, fontSize: 13 },
-  codePanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 14,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FAFAFB',
-  },
-  codeText: { flex: 1, minWidth: 0, gap: 3 },
-  codeTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
-  codeHint: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  codeValue: { color: professorAccent, fontSize: 16, fontWeight: '700', letterSpacing: 1.2, marginTop: 3 },
-  codeButton: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#F3E5E5' },
-  codeButtonText: { color: professorAccent, fontSize: 13, fontWeight: '700' },
-  revokeButton: { position: 'absolute', right: 14, bottom: 10, paddingVertical: 4 },
-  revokeText: { color: '#A12626', fontSize: 12, fontWeight: '700' },
-  roster: { borderTopWidth: 1, borderColor: colors.line },
-  studentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 14, borderBottomWidth: 1, borderColor: colors.line },
-  studentAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F2F2F4', alignItems: 'center', justifyContent: 'center' },
-  studentInitials: { color: '#4C4D53', fontSize: 12, fontWeight: '700' },
-  studentInfo: { flex: 1, minWidth: 0, gap: 3 },
-  studentName: { color: colors.ink, fontSize: 14, lineHeight: 19, fontWeight: '600' },
-  studentIdentifier: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  removeButton: { paddingHorizontal: 5, paddingVertical: 7 },
-  removeText: { color: '#A12626', fontSize: 12, fontWeight: '600' },
-  confirmRemoval: { marginTop: 7, gap: 8 },
-  confirmCopy: { color: '#67686E', fontSize: 12, lineHeight: 17 },
-  confirmActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  confirmRemoveButton: { paddingVertical: 4 },
-  keepText: { color: colors.ink, fontSize: 12, fontWeight: '600' },
-  loadError: { padding: 14, borderRadius: 14, backgroundColor: '#FFF7F6', borderWidth: 1, borderColor: '#F0DADA', gap: 8 },
-  errorText: { color: '#7D2424', fontSize: 13, lineHeight: 18 },
-  retryText: { color: professorAccent, fontSize: 13, fontWeight: '700' },
-});
 export function AssessmentCard({ a }: { a: Assessment }) {
-  const { profile, open } = useApp();
-  const teacher = profile.role === 'teacher';
+  const { open } = useApp();
   return (
     <Card>
       <View style={[s.hstack, { justifyContent: 'space-between' }]}>
@@ -3632,11 +2916,9 @@ export function AssessmentCard({ a }: { a: Assessment }) {
         {'\n'}Asia/Manila · {a.duration_minutes} minutes
       </Text>
       <Button
-        title={
-          teacher ? 'Review assessment' : a.state === 'open' ? 'Open assessment' : 'View details'
-        }
+        title={a.state === 'open' ? 'Open assessment' : 'View details'}
         secondary
-        onPress={() => open(teacher ? 'review' : 'quiz', a.id)}
+        onPress={() => open('quiz', a.id)}
       />
     </Card>
   );
@@ -3850,14 +3132,14 @@ export function Consultations() {
           )}
         </>
       )}
-      <Heading>{profile.role === 'teacher' ? 'Your consultations' : 'Your bookings'}</Heading>
+      <Heading>Your bookings</Heading>
       <RemoteState error={error} loading={!bookings && !error} />
       {bookings
         ?.filter((b) => b.status === 'booked')
         .map((b) => (
           <Card key={b.id}>
             <Row
-              title={profile.role === 'teacher' ? b.student_name : b.teacher_name}
+              title={b.teacher_name}
               detail={`${dateText(b.starts_at)} · Asia/Manila`}
               icon="calendar"
             />
@@ -3893,8 +3175,7 @@ export function Consultations() {
   );
 }
 export function Calendar() {
-  const { profile } = useApp();
-  return profile.role === 'teacher' ? <ProfessorCalendar /> : <StudentCalendar />;
+  return <StudentCalendar />;
 }
 
 function StudentCalendar() {

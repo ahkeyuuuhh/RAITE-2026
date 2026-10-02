@@ -15,9 +15,9 @@ import { Icon, colors } from './ui';
 import type { Config, Profile } from './types';
 import { loginAccount, registerAccount } from './api';
 
-export type UserRole = 'student' | 'teacher';
+export type UserRole = 'student';
 
-type FlowScreen = 'login' | 'register_account' | 'role_select' | 'onboarding';
+type FlowScreen = 'login' | 'register_account' | 'onboarding';
 
 const ACCENT = '#811212';
 
@@ -49,16 +49,14 @@ export function AuthFlow({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accountError, setAccountError] = useState('');
 
-  // Register - Role selection
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
+  // Register - Role (student only)
+  const selectedRole: UserRole = 'student';
 
   // Register - Onboarding fields
   const [school, setSchool] = useState('University of the Philippines Diliman');
   const [studentId, setStudentId] = useState('');
   const [course, setCourse] = useState('BS Computer Science');
   const [yearLevel, setYearLevel] = useState('2nd Year');
-  const [facultyId, setFacultyId] = useState('');
-  const [department, setDepartment] = useState('Department of Computer Science');
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [onboardingError, setOnboardingError] = useState('');
 
@@ -118,7 +116,7 @@ export function AuthFlow({
       return;
     }
 
-    setCurrentScreen('role_select');
+    setCurrentScreen('onboarding');
   };
 
   const handleFinishOnboarding = async () => {
@@ -135,13 +133,11 @@ export function AuthFlow({
         password: registerPassword,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        role: selectedRole,
+        role: 'student',
         school: school.trim(),
         studentId: studentId.trim(),
         course: course.trim(),
         yearLevel: yearLevel.trim(),
-        facultyId: facultyId.trim(),
-        department: department.trim(),
       });
 
       if (res.ok && res.profile) {
@@ -170,8 +166,8 @@ export function AuthFlow({
   };
 
   // Demo shortcut login
-  const handleQuickDemo = (role: UserRole) => {
-    const email = role === 'teacher' ? 'teacher@classassist.demo' : 'student@classassist.demo';
+  const handleQuickDemo = () => {
+    const email = 'student@classassist.demo';
     const pwd = 'ClassAssist-demo-2026!';
     setLoginEmail(email);
     setLoginPassword(pwd);
@@ -323,23 +319,15 @@ export function AuthFlow({
 
             {/* Quick Demo Shortcuts for Hackathon Evaluation */}
             <View style={styles.demoSection}>
-              <Text style={styles.demoTitle}>Quick Demo Accounts</Text>
+              <Text style={styles.demoTitle}>Quick Demo Account</Text>
               <View style={styles.demoRow}>
                 <Pressable
                   disabled={loginBusy}
-                  onPress={() => handleQuickDemo('teacher')}
-                  style={({ pressed }) => [styles.demoChip, pressed && { opacity: 0.7 }]}
-                >
-                  <Icon name="book.closed" size={16} color={ACCENT} />
-                  <Text style={styles.demoChipText}>Professor Demo</Text>
-                </Pressable>
-                <Pressable
-                  disabled={loginBusy}
-                  onPress={() => handleQuickDemo('student')}
+                  onPress={handleQuickDemo}
                   style={({ pressed }) => [styles.demoChip, pressed && { opacity: 0.7 }]}
                 >
                   <Icon name="graduationcap.fill" size={16} color={colors.ink} />
-                  <Text style={styles.demoChipText}>Student Demo</Text>
+                  <Text style={styles.demoChipText}>Student Demo Account</Text>
                 </Pressable>
               </View>
             </View>
@@ -501,114 +489,7 @@ export function AuthFlow({
   }
 
   // -------------------------------------------------------------------------
-  // SCREEN 3: ROLE SELECTION
-  // -------------------------------------------------------------------------
-  if (currentScreen === 'role_select') {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {renderBrandHeader(true, () => setCurrentScreen('register_account'))}
-
-          <View style={styles.stepIndicator}>
-            <Text style={styles.stepText}>Step 2 of 3</Text>
-          </View>
-
-          <View style={styles.headerBlock}>
-            <Text style={styles.title}>How will you use Aider?</Text>
-            <Text style={styles.subtitle}>Choose your workspace role to personalize your experience.</Text>
-          </View>
-
-          <View style={styles.cardsStack}>
-            {/* Student Card */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Student role"
-              onPress={() => setSelectedRole('student')}
-              style={({ pressed }) => [
-                styles.roleCard,
-                selectedRole === 'student' && styles.roleCardActive,
-                pressed && { opacity: 0.9 },
-              ]}
-            >
-              <View style={styles.roleCardTop}>
-                <View
-                  style={[
-                    styles.roleIconBox,
-                    selectedRole === 'student' && styles.roleIconBoxActive,
-                  ]}
-                >
-                  <Icon
-                    name="graduationcap.fill"
-                    size={24}
-                    color={selectedRole === 'student' ? ACCENT : colors.ink}
-                  />
-                </View>
-                {selectedRole === 'student' && (
-                  <View style={styles.selectedCheck}>
-                    <Icon name="checkmark" size={16} color="#FFFFFF" />
-                  </View>
-                )}
-              </View>
-              <Text style={styles.roleTitle}>Student</Text>
-              <Text style={styles.roleDesc}>
-                Join classes, review lessons, and stay on track.
-              </Text>
-            </Pressable>
-
-            {/* Professor Card */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Professor role"
-              onPress={() => setSelectedRole('teacher')}
-              style={({ pressed }) => [
-                styles.roleCard,
-                selectedRole === 'teacher' && styles.roleCardActive,
-                pressed && { opacity: 0.9 },
-              ]}
-            >
-              <View style={styles.roleCardTop}>
-                <View
-                  style={[
-                    styles.roleIconBox,
-                    selectedRole === 'teacher' && styles.roleIconBoxActive,
-                  ]}
-                >
-                  <Icon
-                    name="book.closed"
-                    size={24}
-                    color={selectedRole === 'teacher' ? ACCENT : colors.ink}
-                  />
-                </View>
-                {selectedRole === 'teacher' && (
-                  <View style={styles.selectedCheck}>
-                    <Icon name="checkmark" size={16} color="#FFFFFF" />
-                  </View>
-                )}
-              </View>
-              <Text style={styles.roleTitle}>Professor</Text>
-              <Text style={styles.roleDesc}>
-                Manage classes, classwork, and students.
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={{ marginTop: 24 }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Continue"
-              onPress={() => setCurrentScreen('onboarding')}
-              style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
-            >
-              <Text style={styles.primaryButtonText}>Continue</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // SCREEN 4A & 4B: ONBOARDING (ROLE SPECIFIC)
+  // SCREEN 3: ONBOARDING (STUDENT)
   // -------------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -620,22 +501,16 @@ export function AuthFlow({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {renderBrandHeader(true, () => setCurrentScreen('role_select'))}
+          {renderBrandHeader(true, () => setCurrentScreen('register_account'))}
 
           <View style={styles.stepIndicator}>
-            <Text style={styles.stepText}>Step 3 of 3</Text>
+            <Text style={styles.stepText}>Step 2 of 2</Text>
           </View>
 
           <View style={styles.headerBlock}>
-            <Text style={styles.title}>
-              {selectedRole === 'student'
-                ? 'Set up your student profile'
-                : 'Set up your professor profile'}
-            </Text>
+            <Text style={styles.title}>Set up your student profile</Text>
             <Text style={styles.subtitle}>
-              {selectedRole === 'student'
-                ? 'Provide your academic details to connect with your classes.'
-                : 'Provide your faculty details to organize your classes.'}
+              Provide your academic details to connect with your classes.
             </Text>
           </View>
 
@@ -658,73 +533,42 @@ export function AuthFlow({
               />
             </View>
 
-            {selectedRole === 'student' ? (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Student ID Number</Text>
-                  <TextInput
-                    accessibilityLabel="Student ID"
-                    value={studentId}
-                    onChangeText={setStudentId}
-                    placeholder="e.g. 2024-12345"
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="characters"
-                    style={styles.input}
-                  />
-                </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Student ID Number</Text>
+              <TextInput
+                accessibilityLabel="Student ID"
+                value={studentId}
+                onChangeText={setStudentId}
+                placeholder="e.g. 2024-12345"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="characters"
+                style={styles.input}
+              />
+            </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Program / Course</Text>
-                  <TextInput
-                    accessibilityLabel="Course"
-                    value={course}
-                    onChangeText={setCourse}
-                    placeholder="e.g. BS Computer Science"
-                    placeholderTextColor={colors.muted}
-                    style={styles.input}
-                  />
-                </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Program / Course</Text>
+              <TextInput
+                accessibilityLabel="Course"
+                value={course}
+                onChangeText={setCourse}
+                placeholder="e.g. BS Computer Science"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+            </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Year Level / Grade</Text>
-                  <TextInput
-                    accessibilityLabel="Year level"
-                    value={yearLevel}
-                    onChangeText={setYearLevel}
-                    placeholder="e.g. 2nd Year, Grade 10"
-                    placeholderTextColor={colors.muted}
-                    style={styles.input}
-                  />
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Faculty / Employee ID</Text>
-                  <TextInput
-                    accessibilityLabel="Faculty ID"
-                    value={facultyId}
-                    onChangeText={setFacultyId}
-                    placeholder="e.g. FAC-2026-001"
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="characters"
-                    style={styles.input}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Department</Text>
-                  <TextInput
-                    accessibilityLabel="Department"
-                    value={department}
-                    onChangeText={setDepartment}
-                    placeholder="e.g. Department of Computer Science"
-                    placeholderTextColor={colors.muted}
-                    style={styles.input}
-                  />
-                </View>
-              </>
-            )}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Year Level / Grade</Text>
+              <TextInput
+                accessibilityLabel="Year level"
+                value={yearLevel}
+                onChangeText={setYearLevel}
+                placeholder="e.g. 2nd Year, Grade 10"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+            </View>
 
             <Pressable
               accessibilityRole="button"
@@ -751,7 +595,7 @@ export function AuthFlow({
 }
 
 // =========================================================================
-// STYLES (Matching Professor Classroom Visual Philosophy)
+// STYLES (Clean Minimal iOS Visual Philosophy)
 // =========================================================================
 const styles = StyleSheet.create({
   container: {
