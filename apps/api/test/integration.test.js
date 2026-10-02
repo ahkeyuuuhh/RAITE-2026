@@ -14,6 +14,7 @@ if (!process.env.DATABASE_URL?.includes('127.0.0.1:55322'))
 const api = supertest(app);
 let teacher, student, student2, classId, teacherId, studentId;
 const created = [];
+const requestIds = [];
 const authed = (method, path, token) =>
   api[method](`/api${path}`).set('Authorization', `Bearer ${token}`);
 before(async () => {
@@ -54,10 +55,10 @@ after(async () => {
     ).rows.map((r) => r.id);
     for (const table of ['notifications', 'calendar_events', 'jobs'])
       await pool.query(`delete from classassist.${table} where reference_id=any($1::uuid[])`, [
-        [...ids, ...created],
+        [...ids, ...created, ...requestIds],
       ]);
     await pool.query('delete from classassist.audit_events where reference_id=any($1::uuid[])', [
-      [...ids, ...created],
+      [...ids, ...created, ...requestIds],
     ]);
     await pool.query('delete from classassist.attempts where assessment_id=any($1::uuid[])', [ids]);
     await pool.query('delete from classassist.approvals where assessment_id=any($1::uuid[])', [
@@ -65,6 +66,9 @@ after(async () => {
     ]);
     await pool.query('delete from classassist.assessments where class_id=$1', [classId]);
     await pool.query('delete from classassist.consultations where id=any($1::uuid[])', [created]);
+    await pool.query('delete from classassist.consultation_requests where id=any($1::uuid[])', [
+      requestIds,
+    ]);
     await pool.query('delete from classassist.classes where id=$1', [classId]);
   }
   await pool.end();
@@ -149,6 +153,142 @@ test('two simultaneous confirmations reserve exactly once; retry returns same re
     ]);
   }
 });
+
+async function freeRequestStart() {
+  for (let day = 30; day <= 180; day++) {
+    const start = DateTime.now()
+      .setZone('Asia/Manila')
+      .plus({ days: day })
+      .startOf('day')
+      .set({ hour: 11, minute: 0 });
+    const end = start.plus({ minutes: 30 });
+    const busy = await one(
+      pool,
+      `select 1 from classassist.calendar_events e
+       where not e.canceled and e.starts_at < $1 and e.ends_at > $2
+         and (e.user_id=$3 or exists(select 1 from classassist.classes c where c.id=e.class_id and c.teacher_id=$3))
+       union all
+       select 1 from classassist.consultations b where b.teacher_id=$3 and b.status='booked'
+         and b.starts_at < $1 and b.ends_at > $2 limit 1`,
+      [end.toUTC().toJSDate(), start.toUTC().toJSDate(), teacherId],
+    );
+    if (!busy) return { start, end };
+  }
+  throw new Error('No open test time was found.');
+}
+
+async function postRequest(studentToken = student) {
+  const { start, end } = await freeRequestStart();
+  const result = await authed('post', '/consultation-requests', studentToken).send({
+    teacherId,
+    classId,
+    requestedStart: start.toUTC().toISO({ suppressMilliseconds: true }),
+    requestedEnd: end.toUTC().toISO({ suppressMilliseconds: true }),
+    reason: 'Integration test appointment request',
+  });
+  if (result.body?.id) requestIds.push(result.body.id);
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  return { request: result.body, start, end };
+}
+
+test('professor request approval persists status, consultation, and calendar event atomically', async () => {
+  const { request } = await postRequest();
+  const pending = await authed('get', '/consultation-requests?status=pending', teacher);
+  assert.equal(pending.status, 200);
+  assert.ok(pending.body.some((item) => item.id === request.id && item.student_name));
+
+  const approved = await authed(
+    'post',
+    `/consultation-requests/${request.id}/approve`,
+    teacher,
+  ).send({});
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  if (approved.body?.booking?.id) created.push(approved.body.booking.id);
+  assert.equal(approved.body.request.status, 'approved');
+  assert.equal(approved.body.event.user_id, teacherId);
+
+  const professorEvents = await authed('get', '/me/calendar', teacher);
+  assert.ok(professorEvents.body.some((event) => event.id === approved.body.event.id));
+  const pendingAfter = await authed('get', '/consultation-requests?status=pending', teacher);
+  assert.ok(pendingAfter.body.every((item) => item.id !== request.id));
+  const studentStatus = await authed('get', '/consultation-requests?status=approved', student);
+  assert.ok(studentStatus.body.some((item) => item.id === request.id));
+  const retry = await authed('post', `/consultation-requests/${request.id}/approve`, teacher).send(
+    {},
+  );
+  assert.equal(retry.status, 409);
+});
+
+test('declined requests stay persisted and create no consultation or calendar event', async () => {
+  const { request } = await postRequest();
+  const denied = await authed('post', `/consultation-requests/${request.id}/deny`, teacher).send(
+    {},
+  );
+  assert.equal(denied.status, 200);
+  assert.equal(denied.body.status, 'denied');
+  assert.equal(
+    (
+      await one(
+        pool,
+        'select count(*)::int as n from classassist.consultations where request_key=$1',
+        [request.id],
+      )
+    ).n,
+    0,
+  );
+  assert.equal(
+    (
+      await one(
+        pool,
+        `select count(*)::int as n from classassist.calendar_events e
+      join classassist.consultations b on b.id=e.reference_id where b.request_key=$1`,
+        [request.id],
+      )
+    ).n,
+    0,
+  );
+});
+
+test('approval rejects overlapping professor events and leaves the request pending', async () => {
+  const { request, start, end } = await postRequest();
+  await pool.query(
+    `insert into classassist.calendar_events(user_id,reference_id,kind,title,starts_at,ends_at,dedupe_key)
+     values($1,$2,'class','Busy integration slot',$3,$4,$5)`,
+    [
+      teacherId,
+      request.id,
+      start.toUTC().toJSDate(),
+      end.toUTC().toJSDate(),
+      `integration-busy:${request.id}`,
+    ],
+  );
+  const conflict = await authed(
+    'post',
+    `/consultation-requests/${request.id}/approve`,
+    teacher,
+  ).send({});
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.body.error.code, 'SCHEDULE_CONFLICT');
+  assert.equal(
+    (
+      await one(pool, 'select status from classassist.consultation_requests where id=$1', [
+        request.id,
+      ])
+    ).status,
+    'pending',
+  );
+  assert.equal(
+    (
+      await one(
+        pool,
+        'select count(*)::int as n from classassist.consultations where request_key=$1',
+        [request.id],
+      )
+    ).n,
+    0,
+  );
+});
+
 async function draft() {
   const n = Date.now();
   const r = await authed('post', `/classes/${classId}/assessment-drafts`, teacher).send({

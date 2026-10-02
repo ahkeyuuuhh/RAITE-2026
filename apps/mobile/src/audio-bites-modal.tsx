@@ -63,7 +63,30 @@ interface PresetTopicItem {
   title: string;
   subject: string;
   desc: string;
+  duration: string;
+  hosts: string;
 }
+
+const INSPIRATION_TAGS = [
+  "Newton's 3 Laws",
+  'Photosynthesis & Light',
+  'Big-O Complexity',
+  'Derivatives & Limits',
+  'Philippine Constitution',
+  'Cellular Respiration',
+  'Quantum Superposition',
+  'Keynesian Multiplier',
+];
+
+const CATEGORIES = [
+  'All',
+  'Physics',
+  'Biology',
+  'Calculus',
+  'Computer Science',
+  'Social Science',
+  'Biochemistry',
+];
 
 const PRESET_TOPICS: PresetTopicItem[] = [
   {
@@ -72,7 +95,9 @@ const PRESET_TOPICS: PresetTopicItem[] = [
     iconColor: '#D97706',
     title: "Newton's 3 Laws & Momentum",
     subject: 'Physics',
-    desc: 'Why inertia rules the universe and action equals reaction.',
+    desc: 'Why inertia rules the universe, action equals reaction, and how momentum conserves kinetic motion.',
+    duration: '2:15',
+    hosts: 'Alex & Sam',
   },
   {
     icon: 'drop.fill',
@@ -80,7 +105,9 @@ const PRESET_TOPICS: PresetTopicItem[] = [
     iconColor: '#16A34A',
     title: 'Photosynthesis & Solar Sugar',
     subject: 'Biology',
-    desc: 'How thylakoids and the Calvin cycle trap light.',
+    desc: 'How thylakoid membranes and the Calvin cycle trap sunlight to synthesize glucose fuel.',
+    duration: '1:55',
+    hosts: 'Alex & Sam',
   },
   {
     icon: 'arrow.up',
@@ -88,7 +115,9 @@ const PRESET_TOPICS: PresetTopicItem[] = [
     iconColor: '#2563EB',
     title: 'Derivatives & Tangent Lines',
     subject: 'Calculus',
-    desc: 'Instantaneous rates of change made visual and intuitive.',
+    desc: 'Instantaneous rates of change, slopes, and limits made visual, intuitive, and exam-ready.',
+    duration: '2:30',
+    hosts: 'Solo Mentor',
   },
   {
     icon: 'gearshape',
@@ -96,7 +125,9 @@ const PRESET_TOPICS: PresetTopicItem[] = [
     iconColor: '#7C3AED',
     title: 'Big-O Complexity Demystified',
     subject: 'Computer Science',
-    desc: 'From O(1) instant lookups to O(n!) catastrophic explosions.',
+    desc: 'From O(1) instant hash lookups to O(n!) catastrophic explosions in algorithmic runtime.',
+    duration: '2:05',
+    hosts: 'Alex & Sam',
   },
   {
     icon: 'building.columns.fill',
@@ -104,7 +135,9 @@ const PRESET_TOPICS: PresetTopicItem[] = [
     iconColor: '#475569',
     title: 'Philippine Bill of Rights',
     subject: 'Social Science',
-    desc: 'Article III essentials: due process, free speech, and warrants.',
+    desc: 'Article III constitutional essentials: due process of law, free expression, and search warrants.',
+    duration: '2:40',
+    hosts: 'Prof. Rivera',
   },
   {
     icon: 'sparkles',
@@ -112,7 +145,9 @@ const PRESET_TOPICS: PresetTopicItem[] = [
     iconColor: '#DB2777',
     title: 'Cellular Respiration in 2 Mins',
     subject: 'Biochemistry',
-    desc: 'Glycolysis, Krebs cycle, and the ATP synthase turbine.',
+    desc: 'Glycolysis, Krebs citric acid cycle, and the mitochondrial ATP synthase turbine.',
+    duration: '2:10',
+    hosts: 'Alex & Sam',
   },
 ];
 
@@ -201,6 +236,158 @@ function ApplePlayPauseIcon({
           fill={color}
         />
       )}
+    </Svg>
+  );
+}
+
+function AppleMiniPlayIcon({
+  size = 12,
+  color = '#1C1C1E',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path
+        d="M7 4.24 C7 2.65 8.76 1.69 10.1 2.54 L20.26 8.98 C21.5 9.77 21.5 11.57 20.26 12.36 L10.1 18.8 C8.76 19.65 7 18.69 7 17.1 V4.24 Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+function VerifiedBadge({ size = 15 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="11" fill="#F97316" />
+      <Path
+        d="M7.5 12.2 L10.5 15.2 L16.8 8.8"
+        stroke="#FFFFFF"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function AppleShuffleIcon({
+  size = 22,
+  color = '#1C1C1E',
+  active = false,
+}: {
+  size?: number;
+  color?: string;
+  active?: boolean;
+}) {
+  const c = active ? '#5E5CE6' : color;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M16 4h4v4M16 20h4v-4M4 20h4c3.5 0 5-12 12-12M4 4h4c3.5 0 5 12 12 12"
+        stroke={c}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function AppleRepeatIcon({
+  size = 22,
+  color = '#1C1C1E',
+  active = false,
+}: {
+  size?: number;
+  color?: string;
+  active?: boolean;
+}) {
+  const c = active ? '#5E5CE6' : color;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 2l4 4-4 4"
+        stroke={c}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 11V9a4 4 0 014-4h14"
+        stroke={c}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M7 22l-4-4 4-4"
+        stroke={c}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M21 13v2a4 4 0 01-4 4H3"
+        stroke={c}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+const WAVEFORM_HEIGHTS = [
+  16, 26, 38, 22, 14, 30, 42, 28, 20, 36,
+  24, 18, 32, 40, 26, 16, 28, 38, 22, 14,
+  34, 42, 28, 18, 30, 24, 38, 20, 14, 26,
+  36, 22, 16, 30, 24, 34, 20, 16, 26, 18,
+];
+
+function AppleShareIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M12 3v13m0-13l-4 4m4-4l4 4"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function SpotifyFlagIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v19"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function AppleFullScreenIcon({ size = 12, color = '#007AFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -354,6 +541,7 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
   const [viewTab, setViewTab] = useState<ViewTab>('player');
   const [isGenerating, setIsGenerating] = useState(false);
   const [podcast, setPodcast] = useState<PodcastResult | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [copied, setCopied] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [volume, setVolume] = useState<number>(0.85);
@@ -362,33 +550,50 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
   const [selectedRoute, setSelectedRoute] = useState<'iPhone Speaker' | 'AirPods Pro' | 'ClassAssist Hub'>('iPhone Speaker');
   const [showActionSheet, setShowActionSheet] = useState(false);
 
+  const filteredTopics = PRESET_TOPICS.filter(
+    (item) => selectedCategory === 'All' || item.subject === selectedCategory,
+  );
+
   // Audio Playback State
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSec, setCurrentSec] = useState(0);
   const [activeSegIdx, setActiveSegIdx] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
 
   const timerRef = useRef<any>(null);
   const scrollRef = useRef<ScrollView>(null);
   const lyricsScrollRef = useRef<ScrollView>(null);
+  const inlineLyricsScrollRef = useRef<ScrollView>(null);
 
-  // Apple Music artwork spring animation: 1.0 when playing, 0.88 when paused
-  const artworkScale = useRef(new Animated.Value(0.88)).current;
+  // Apple Music artwork spring animation: 1.0 when playing, 0.96 when paused
+  const artworkScale = useRef(new Animated.Value(0.96)).current;
 
   useEffect(() => {
     Animated.spring(artworkScale, {
-      toValue: isPlaying ? 1.0 : 0.88,
+      toValue: isPlaying ? 1.0 : 0.96,
       friction: 7,
       tension: 45,
       useNativeDriver: true,
     }).start();
   }, [isPlaying, artworkScale]);
 
-  // Auto-scroll Live Lyrics when segment advances
+  // Auto-scroll Live Lyrics when segment advances (Full Screen View)
   useEffect(() => {
     if (viewTab === 'lyrics' && lyricsScrollRef.current) {
       lyricsScrollRef.current.scrollTo({
-        y: Math.max(0, activeSegIdx * 82 - 80),
+        y: Math.max(0, activeSegIdx * 68 - 100),
+        animated: true,
+      });
+    }
+  }, [activeSegIdx, viewTab]);
+
+  // Auto-scroll Live Lyrics when segment advances (Inline Player View)
+  useEffect(() => {
+    if (viewTab === 'player' && inlineLyricsScrollRef.current) {
+      inlineLyricsScrollRef.current.scrollTo({
+        y: Math.max(0, activeSegIdx * 62 - 40),
         animated: true,
       });
     }
@@ -435,6 +640,8 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
         utterance.onend = () => {
           if (segIndex + 1 < podcast.segments.length) {
             playSegmentTTS(segIndex + 1);
+          } else if (isRepeat) {
+            playSegmentTTS(0);
           } else {
             setIsPlaying(false);
             if (sleepTimer === 'end') {
@@ -466,6 +673,9 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
       timerRef.current = setInterval(() => {
         setCurrentSec((prev) => {
           if (prev >= podcast.totalSeconds) {
+            if (isRepeat) {
+              return 0;
+            }
             stopAudio();
             return 0;
           }
@@ -496,7 +706,7 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPlaying, podcast, playbackSpeed, activeSegIdx]);
+  }, [isPlaying, podcast, playbackSpeed, activeSegIdx, isRepeat]);
 
   useEffect(() => {
     return () => {
@@ -525,6 +735,40 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
     seekToSec(currentSec + delta);
   };
 
+  const toggleShuffle = () => {
+    setIsShuffle((prev) => {
+      const next = !prev;
+      if (next && podcast && podcast.segments.length > 1) {
+        const randIdx = Math.floor(Math.random() * podcast.segments.length);
+        seekToSec(podcast.segments[randIdx].timeOffsetSec);
+      }
+      return next;
+    });
+  };
+
+  const handleWaveformSeek = (e: any) => {
+    if (!podcast) return;
+    const rect = (e.currentTarget as any)?.getBoundingClientRect?.();
+    if (rect && rect.width > 0) {
+      const clickX = e.nativeEvent.pageX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      seekToSec(Math.round(pct * podcast.totalSeconds));
+    }
+  };
+
+  const handleSpotifySeek = (e: any) => {
+    if (!podcast) return;
+    const rect = (e.currentTarget as any)?.getBoundingClientRect?.();
+    if (rect && rect.width > 0) {
+      const clickX = e.nativeEvent.pageX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      seekToSec(Math.round(pct * podcast.totalSeconds));
+    }
+  };
+
+  const progressPct = podcast && podcast.totalSeconds > 0 ? currentSec / podcast.totalSeconds : 0;
+  const activeBarsCount = Math.round(progressPct * WAVEFORM_HEIGHTS.length);
+
   const handleSpeedToggle = () => {
     const speeds = [1.0, 1.25, 1.5, 2.0];
     const currIdx = speeds.indexOf(playbackSpeed);
@@ -550,6 +794,10 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
   const generatePodcast = async (selectedTopic?: string) => {
     const finalTopic = (selectedTopic || topic).trim();
     if (!finalTopic || isGenerating) return;
+
+    if (selectedTopic) {
+      setTopic(selectedTopic);
+    }
 
     stopAudio();
     setIsGenerating(true);
@@ -614,152 +862,356 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
   };
 
   return (
-    <SafeAreaView style={styles.canvas} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView
+      style={[styles.canvas, viewTab === 'lyrics' && styles.canvasSpotify]}
+      edges={['top', 'left', 'right', 'bottom']}
+    >
       {/* 1. iOS SHEET PULL-DOWN HANDLE */}
-      <View style={styles.sheetHandle} />
+      {viewTab !== 'lyrics' && <View style={styles.sheetHandle} />}
 
-      {/* 2. iOS NAVIGATION BAR */}
-      <View style={styles.navBar}>
-        {/* Left: iOS Circular Frosted Close/Back Pill */}
-        <Pressable
-          onPress={() => {
-            stopAudio();
-            onBack();
-          }}
-          accessibilityLabel="Dismiss sheet"
-          style={({ pressed }) => [
-            styles.navPillButton,
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <Icon name="chevron.down" size={17} color="#1C1C1E" />
-        </Pressable>
+      {/* 2. NAVIGATION BAR */}
+      {viewTab === 'lyrics' && podcast ? (
+        /* Spotify Live Lyrics Header */
+        <View style={styles.spotifyNavBar}>
+          {/* Left: Down Chevron (Collapse back to player) */}
+          <Pressable
+            onPress={() => setViewTab('player')}
+            accessibilityLabel="Collapse lyrics"
+            style={({ pressed }) => [
+              styles.spotifyNavBtn,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Icon name="chevron.down" size={20} color="#FFFFFF" />
+          </Pressable>
 
-        {/* Center: Apple Podcasts "NOW PLAYING" Header */}
-        <View style={styles.navHeaderCenter}>
-          <Text style={styles.navEyebrow}>
-            {podcast ? 'NOW PLAYING' : 'AUDIO BITES STUDIO'}
-          </Text>
-          <Text style={styles.navSubject} numberOfLines={1}>
-            {podcast ? podcast.subject : 'ClassAssist Study Cast'}
-          </Text>
-        </View>
-
-        {/* Right Action Icons: Live Lyrics Pill & More Menu */}
-        {podcast ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Pressable
-              onPress={() => setViewTab((prev) => (prev === 'player' ? 'lyrics' : 'player'))}
-              accessibilityLabel="Toggle live lyrics"
-              style={({ pressed }) => [
-                styles.navPillButton,
-                viewTab === 'lyrics' && { backgroundColor: '#E0E7FF' },
-                pressed && { opacity: 0.6 },
-              ]}
-            >
-              <AppleLyricsIcon active={viewTab === 'lyrics'} color={viewTab === 'lyrics' ? '#007AFF' : '#1C1C1E'} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => setShowActionSheet(true)}
-              accessibilityLabel="More options"
-              style={({ pressed }) => [
-                styles.navPillButton,
-                pressed && { opacity: 0.6 },
-              ]}
-            >
-              <AppleMoreIcon size={17} color="#1C1C1E" />
-            </Pressable>
+          {/* Center: Track & Artist Header */}
+          <View style={styles.spotifyNavCenter}>
+            <Text style={styles.spotifyNavTitle} numberOfLines={1}>
+              {podcast.title}
+            </Text>
+            <Text style={styles.spotifyNavArtist} numberOfLines={1}>
+              {podcast.hosts.join(' & ')} · {podcast.subject}
+            </Text>
           </View>
-        ) : (
-          <View style={{ width: 34 }} />
-        )}
-      </View>
+
+          {/* Right: Spotify Flag Icon */}
+          <Pressable
+            onPress={() => setShowActionSheet(true)}
+            accessibilityLabel="Lyrics options"
+            style={({ pressed }) => [
+              styles.spotifyNavBtn,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <SpotifyFlagIcon size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      ) : (
+        /* iOS Clean Navigation Bar */
+        <View style={styles.navBar}>
+          {/* Left: iOS Circular Frosted Close/Back Pill */}
+          <Pressable
+            onPress={() => {
+              stopAudio();
+              onBack();
+            }}
+            accessibilityLabel="Dismiss sheet"
+            style={({ pressed }) => [
+              styles.navPillButton,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Icon name="chevron.down" size={17} color="#1C1C1E" />
+          </Pressable>
+
+          {/* Center: Apple Podcasts Header / Studio Pill */}
+          <View style={styles.navHeaderCenter}>
+            {podcast ? (
+              <>
+                <Text style={styles.navEyebrow}>NOW PLAYING</Text>
+                <Text style={styles.navSubject} numberOfLines={1}>
+                  {podcast.subject}
+                </Text>
+              </>
+            ) : (
+              <View style={styles.studioNavPill}>
+                <View style={styles.studioNavDot} />
+                <Text style={styles.studioNavPillText}>AUDIO BITES STUDIO</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Right Action Icons: Live Lyrics Pill & More Menu */}
+          {podcast ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Pressable
+                onPress={() => setViewTab((prev) => (prev === 'player' ? 'lyrics' : 'player'))}
+                accessibilityLabel="Toggle live lyrics"
+                style={({ pressed }) => [
+                  styles.navPillButton,
+                  viewTab === 'lyrics' && { backgroundColor: '#E0E7FF' },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <AppleLyricsIcon active={viewTab === 'lyrics'} color={viewTab === 'lyrics' ? '#007AFF' : '#1C1C1E'} />
+              </Pressable>
+
+              <Pressable
+                onPress={() => setShowActionSheet(true)}
+                accessibilityLabel="More options"
+                style={({ pressed }) => [
+                  styles.navPillButton,
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <AppleMoreIcon size={17} color="#1C1C1E" />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={{ width: 34 }} />
+          )}
+        </View>
+      )}
 
       {/* 3. CONTENT AREA */}
       {!podcast ? (
-        /* ==================== iOS CREATION SCREEN (INSET GROUPED) ==================== */
+        /* ==================== iOS CREATION SCREEN (STUDIO & DISCOVERY) ==================== */
         <ScrollView
           contentContainerStyle={styles.creationScroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* iOS Section Header */}
-          <Text style={styles.sectionHeader}>STUDY TOPIC OR NOTES</Text>
-
-          {/* Inset Grouped Cell */}
-          <View style={styles.insetCard}>
-            <TextInput
-              value={topic}
-              onChangeText={setTopic}
-              placeholder="e.g., Photosynthesis vs Respiration, Newton's 3 Laws, Big-O Notation..."
-              placeholderTextColor="#8E8E93"
-              multiline
-              style={styles.topicTextInput}
-            />
+          {/* iOS Large Title & Subtitle */}
+          <View style={styles.heroHeader}>
+            <View style={styles.heroEyebrowRow}>
+              <Icon name="sparkles" size={13} color="#007AFF" />
+              <Text style={styles.heroEyebrow}>AI STUDY CAST</Text>
+            </View>
+            <Text style={styles.heroTitle}>Audio Bites</Text>
+            <Text style={styles.heroSubtitle}>
+              Turn any topic, chapter, or lecture into a crisp 2-minute masterclass.
+            </Text>
           </View>
 
-          {/* iOS Section Header */}
-          <Text style={styles.sectionHeader}>PODCAST FORMAT</Text>
+          {/* 1. ELEVATED STUDIO COMPOSER CARD */}
+          <View style={styles.studioComposerCard}>
+            <View style={styles.composerCardHeader}>
+              <View style={styles.composerHeaderLeft}>
+                <View style={styles.composerMicBadge}>
+                  <Icon name="mic" size={16} color="#007AFF" />
+                </View>
+                <Text style={styles.composerTitle}>Produce New Masterclass</Text>
+              </View>
+              <View style={styles.composerDurationBadge}>
+                <Text style={styles.composerDurationText}>⏱ ~2 MINS</Text>
+              </View>
+            </View>
 
-          {/* Native iOS Segmented Control */}
-          <View style={styles.segmentedControl}>
-            {(
-              [
-                { key: 'duo', icon: 'person.2.fill' as IconName, label: 'Duo Host', sub: 'Alex & Sam' },
-                { key: 'solo', icon: 'graduationcap.fill' as IconName, label: 'Solo Mentor', sub: 'Professor' },
-                { key: 'speed', icon: 'flame.fill' as IconName, label: '60s Blitz', sub: 'Fast Track' },
-              ] as const
-            ).map((fmt) => {
-              const isSelected = format === fmt.key;
-              return (
+            {/* Inset Text Input with Clear Button */}
+            <View style={styles.composerInputContainer}>
+              <TextInput
+                value={topic}
+                onChangeText={setTopic}
+                placeholder="What do you want to learn? (e.g., Photosynthesis, Newton's Laws, Big-O...)"
+                placeholderTextColor="#8E8E93"
+                multiline
+                style={styles.topicTextInput}
+              />
+              {topic.length > 0 && (
                 <Pressable
-                  key={fmt.key}
-                  onPress={() => setFormat(fmt.key)}
-                  style={[
-                    styles.segmentItem,
-                    isSelected && styles.segmentItemActive,
-                  ]}
+                  onPress={() => setTopic('')}
+                  style={styles.clearInputBtn}
+                  hitSlop={8}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <Icon name={fmt.icon} size={12} color={isSelected ? '#1C1C1E' : '#8E8E93'} />
+                  <Icon name="xmark" size={10} color="#64748B" />
+                </Pressable>
+              )}
+            </View>
+
+            {/* Quick Inspiration Chips */}
+            <View style={styles.quickTagsContainer}>
+              <View style={styles.quickTagsHeader}>
+                <Icon name="sparkles" size={11} color="#8E8E93" />
+                <Text style={styles.quickTagsLabel}>Quick Inspiration</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 2, paddingRight: 8 }}
+              >
+                {INSPIRATION_TAGS.map((tag, idx) => (
+                  <Pressable
+                    key={idx}
+                    onPress={() => setTopic(tag)}
+                    style={({ pressed }) => [
+                      styles.quickTagPill,
+                      topic === tag && styles.quickTagPillActive,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
                     <Text
                       style={[
-                        styles.segmentLabel,
-                        isSelected && styles.segmentLabelActive,
+                        styles.quickTagPillText,
+                        topic === tag && styles.quickTagPillTextActive,
                       ]}
                     >
-                      {fmt.label}
+                      + {tag}
                     </Text>
-                  </View>
-                  <Text style={styles.segmentSub}>{fmt.sub}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
 
-          {/* Primary Action Button */}
-          <View style={{ marginTop: 14 }}>
+            {/* Native iOS Segmented Format Selector */}
+            <View style={styles.formatSection}>
+              <Text style={styles.formatLabel}>PODCAST FORMAT</Text>
+              <View style={styles.segmentedControl}>
+                {(
+                  [
+                    { key: 'duo', icon: 'person.2.fill' as IconName, label: 'Duo Host', sub: 'Alex & Sam' },
+                    { key: 'solo', icon: 'graduationcap.fill' as IconName, label: 'Solo Mentor', sub: 'Professor' },
+                    { key: 'speed', icon: 'flame.fill' as IconName, label: '60s Blitz', sub: 'Fast Track' },
+                  ] as const
+                ).map((fmt) => {
+                  const isSelected = format === fmt.key;
+                  return (
+                    <Pressable
+                      key={fmt.key}
+                      onPress={() => setFormat(fmt.key)}
+                      style={[
+                        styles.segmentItem,
+                        isSelected && styles.segmentItemActive,
+                      ]}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Icon name={fmt.icon} size={12} color={isSelected ? '#1C1C1E' : '#8E8E93'} />
+                        <Text
+                          style={[
+                            styles.segmentLabel,
+                            isSelected && styles.segmentLabelActive,
+                          ]}
+                        >
+                          {fmt.label}
+                        </Text>
+                      </View>
+                      <Text style={styles.segmentSub}>{fmt.sub}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Apple High-Contrast Action Button */}
             <Pressable
               onPress={() => generatePodcast()}
               disabled={isGenerating || !topic.trim()}
               style={({ pressed }) => [
                 styles.primaryAppleButton,
-                (isGenerating || !topic.trim()) && { opacity: 0.4 },
-                pressed && { transform: [{ scale: 0.98 }] },
+                (!topic.trim() || isGenerating) && styles.primaryAppleButtonDisabled,
+                pressed && { transform: [{ scale: 0.985 }] },
               ]}
             >
-              <Text style={styles.primaryAppleButtonText}>
-                {isGenerating ? 'Producing 2-Min Audio Bite…' : 'Generate 2-Min Podcast'}
-              </Text>
+              {isGenerating ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Icon name="waveform" size={16} color="#FFFFFF" />
+                  <Text style={styles.primaryAppleButtonText}>Synthesizing 2-Min Masterclass…</Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Icon name="sparkles" size={16} color="#FFFFFF" />
+                  <Text style={styles.primaryAppleButtonText}>Produce 2-Min Masterclass</Text>
+                </View>
+              )}
             </Pressable>
           </View>
 
-          {/* iOS Section Header */}
-          <Text style={[styles.sectionHeader, { marginTop: 22 }]}>POPULAR STUDY BITES</Text>
+          {/* 2. CURATED DISCOVERY & PLAYLISTS */}
+          <View style={styles.discoveryHeaderRow}>
+            <Text style={styles.discoveryTitle}>CURATED STUDY BITES</Text>
+            <View style={styles.discoveryBadge}>
+              <Text style={styles.discoveryBadgeText}>1-TAP LISTEN</Text>
+            </View>
+          </View>
+
+          {/* Category Filter Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScroll}
+          >
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <Pressable
+                  key={cat}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={[
+                    styles.categoryPill,
+                    isSelected && styles.categoryPillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryPillText,
+                      isSelected && styles.categoryPillTextActive,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Featured Spotlight Card (Only in 'All' Tab) */}
+          {selectedCategory === 'All' && PRESET_TOPICS.length > 0 && (
+            <Pressable
+              onPress={() => {
+                setTopic(PRESET_TOPICS[0].title);
+                generatePodcast(PRESET_TOPICS[0].title);
+              }}
+              style={({ pressed }) => [
+                styles.spotlightHeroCard,
+                pressed && { transform: [{ scale: 0.985 }] },
+              ]}
+            >
+              <View style={styles.spotlightBadgeRow}>
+                <View style={styles.spotlightStarPill}>
+                  <AppleStarIcon filled size={11} color="#D97706" />
+                  <Text style={styles.spotlightStarText}>FEATURED MASTERCLASS</Text>
+                </View>
+                <View style={styles.spotlightDurationPill}>
+                  <Icon name="clock" size={11} color="#8E8E93" />
+                  <Text style={styles.spotlightDurationText}>{PRESET_TOPICS[0].duration} MIN</Text>
+                </View>
+              </View>
+
+              <Text style={styles.spotlightTitle}>{PRESET_TOPICS[0].title}</Text>
+              <Text style={styles.spotlightDesc} numberOfLines={2}>
+                {PRESET_TOPICS[0].desc}
+              </Text>
+
+              <View style={styles.spotlightFooter}>
+                <View style={styles.spotlightHostRow}>
+                  <View style={styles.hostAvatar}>
+                    <Icon name="person.2.fill" size={12} color="#4F46E5" />
+                  </View>
+                  <Text style={styles.spotlightHostText}>
+                    {PRESET_TOPICS[0].hosts} • {PRESET_TOPICS[0].subject}
+                  </Text>
+                </View>
+
+                <View style={styles.spotlightPlayBtn}>
+                  <AppleMiniPlayIcon size={11} color="#FFFFFF" />
+                  <Text style={styles.spotlightPlayBtnText}>Listen Now</Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
 
           {/* iOS Inset Grouped Table View */}
           <View style={styles.insetGroupedTable}>
-            {PRESET_TOPICS.map((item, idx) => (
+            {filteredTopics.map((item, idx) => (
               <Pressable
                 key={idx}
                 onPress={() => {
@@ -768,25 +1220,37 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
                 }}
                 style={({ pressed }) => [
                   styles.tableRow,
-                  idx < PRESET_TOPICS.length - 1 && styles.tableRowBorder,
-                  pressed && { backgroundColor: '#F2F2F7' },
+                  idx < filteredTopics.length - 1 && styles.tableRowBorder,
+                  pressed && { backgroundColor: '#F9F9FB' },
                 ]}
               >
+                {/* Squircle Pastel Icon */}
                 <View style={[styles.tableRowIconSquare, { backgroundColor: item.iconBg }]}>
-                  <Icon name={item.icon} size={18} color={item.iconColor} />
+                  <Icon name={item.icon} size={20} color={item.iconColor} />
                 </View>
 
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.tableRowTitle}>{item.title}</Text>
-                    <Pill tone="blue">{item.subject}</Pill>
+                {/* Details Column */}
+                <View style={{ flex: 1, paddingRight: 6 }}>
+                  <View style={styles.tableRowMetaRow}>
+                    <View style={styles.metaSubjectPill}>
+                      <Text style={styles.metaSubjectText}>{item.subject}</Text>
+                    </View>
+                    <Text style={styles.metaDot}>•</Text>
+                    <Text style={styles.metaDuration}>{item.duration}</Text>
+                    <Text style={styles.metaDot}>•</Text>
+                    <Text style={styles.metaHost}>{item.hosts}</Text>
                   </View>
-                  <Text style={styles.tableRowSubtitle} numberOfLines={1}>
+
+                  <Text style={styles.tableRowTitle}>{item.title}</Text>
+                  <Text style={styles.tableRowSubtitle} numberOfLines={2}>
                     {item.desc}
                   </Text>
                 </View>
 
-                <Icon name="chevron.right" size={13} color="#C7C7CC" />
+                {/* Circular Quick Play Button */}
+                <View style={styles.tableRowPlayCircle}>
+                  <AppleMiniPlayIcon size={12} color="#1C1C1E" />
+                </View>
               </Pressable>
             ))}
           </View>
@@ -798,148 +1262,135 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
           contentContainerStyle={styles.playerScroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* HERO SQUIRCLE ALBUM ART (With Spring Scale Animation) */}
-          <Animated.View
-            style={[
-              styles.albumArtContainer,
-              {
-                transform: [{ scale: artworkScale }],
-                shadowOpacity: isPlaying ? 0.35 : 0.12,
-              },
-              Platform.OS === 'web'
-                ? ({
-                    boxShadow: isPlaying
-                      ? '0 24px 48px -10px rgba(99, 102, 241, 0.44), 0 10px 24px -6px rgba(0, 0, 0, 0.16)'
-                      : '0 12px 28px -6px rgba(0, 0, 0, 0.12)',
-                    transition: 'box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  } as any)
-                : null,
-            ]}
-          >
-            {/* Ambient Aurora Orbs */}
-            <View style={styles.albumAuroraTop} />
-            <View style={styles.albumAuroraBottom} />
-
-            {/* Artwork Center Stack */}
-            <View style={styles.artworkInnerStack}>
-              <View style={styles.artworkIconCircle}>
-                <Icon name="mic" size={26} color="#FFFFFF" />
+          {/* CONTAINER-LESS LIVE SCRIPT / LYRICS DISPLAY (Replaces Album Art) */}
+          <View style={styles.inlineLyricsContainer}>
+            {/* Header row with LIVE SCRIPT indicator & Full Screen button */}
+            <View style={styles.inlineLyricsHeaderRow}>
+              <View style={styles.inlineLyricsBadgeRow}>
+                <View style={[styles.liveIndicatorDot, { backgroundColor: isPlaying ? '#10B981' : '#8E8E93' }]} />
+                <Text style={styles.inlineLyricsBadge}>LIVE SCRIPT</Text>
               </View>
-
-              <Text style={styles.artworkTitle} numberOfLines={2}>
-                {podcast.title}
-              </Text>
-
-              <View style={styles.artworkSubjectPill}>
-                <Text style={styles.artworkSubjectText}>
-                  {podcast.subject.toUpperCase()} · {podcast.duration}
-                </Text>
-              </View>
-
-              {/* Pulsing Animated Waveform */}
-              <View style={{ marginTop: 12 }}>
-                <AnimatedWaveVisualizer isPlaying={isPlaying} />
-              </View>
-            </View>
-
-            {/* Bottom Brand Ribbon */}
-            <View style={styles.artworkRibbon}>
-              <Text style={styles.artworkRibbonText}>
-                {podcast.hosts.join(' & ')} · ClassAssist Study Bites
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* TITLE & ARTIST ROW (Apple Style) */}
-          <View style={styles.titleStack}>
-            <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={styles.episodeTitle} numberOfLines={2}>
-                {podcast.title}
-              </Text>
-              <Text style={styles.episodeSubtitle} numberOfLines={1}>
-                {podcast.tagline}
-              </Text>
-            </View>
-
-            {/* Secondary Actions: Favorite Star & Copy Script */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Pressable
-                onPress={() => setIsFavorite((prev) => !prev)}
-                accessibilityLabel="Favorite"
-                style={({ pressed }) => [
-                  styles.iconCircleAction,
-                  isFavorite && { backgroundColor: '#FEF3C7' },
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <AppleStarIcon filled={isFavorite} size={18} color={isFavorite ? '#D97706' : '#8E8E93'} />
-              </Pressable>
 
               <Pressable
-                onPress={handleCopyTranscript}
-                accessibilityLabel="Copy transcript"
+                onPress={() => setViewTab('lyrics')}
+                accessibilityLabel="Open full screen lyrics"
                 style={({ pressed }) => [
-                  styles.iconCircleAction,
-                  copied && { backgroundColor: '#DCFCE7' },
-                  pressed && { opacity: 0.6 },
+                  styles.fullScreenButton,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] },
                 ]}
               >
-                <Icon
-                  name={copied ? 'checkmark' : 'doc.on.doc'}
-                  size={16}
-                  color={copied ? '#16A34A' : '#1C1C1E'}
-                />
+                <AppleFullScreenIcon size={12} color="#007AFF" />
+                <Text style={styles.fullScreenButtonText}>Full Screen</Text>
               </Pressable>
+            </View>
+
+            {/* Seamless Lyrics Text Flow (Strictly NO Background) */}
+            <ScrollView
+              ref={inlineLyricsScrollRef}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={false}
+              style={styles.inlineLyricsScrollView}
+              contentContainerStyle={styles.inlineLyricsScrollContent}
+            >
+              {podcast.segments.map((seg, idx) => {
+                const isActive = idx === activeSegIdx;
+                const isPast = idx < activeSegIdx;
+                const isUpcoming = idx > activeSegIdx;
+
+                return (
+                  <Pressable
+                    key={seg.id || idx}
+                    onPress={() => {
+                      seekToSec(seg.timeOffsetSec);
+                      if (!isPlaying) togglePlay();
+                    }}
+                    style={({ pressed }) => [
+                      styles.inlineLyricLine,
+                      pressed && { opacity: 0.65 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.inlineLyricText,
+                        isActive && styles.inlineLyricTextActive,
+                        isPast && styles.inlineLyricTextPast,
+                        isUpcoming && styles.inlineLyricTextUpcoming,
+                      ]}
+                    >
+                      {seg.text}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* TITLE & CHANNEL HEADER (Centered with Verified Badge) */}
+          <View style={styles.titleStackCentered}>
+            <Text style={styles.episodeTitleCentered} numberOfLines={2}>
+              {podcast.title}
+            </Text>
+            <View style={styles.channelRow}>
+              <Text style={styles.channelText} numberOfLines={1}>
+                {podcast.hosts.join(' & ')} · {podcast.subject} Cast
+              </Text>
+              <VerifiedBadge size={15} />
             </View>
           </View>
 
-          {/* APPLE CONTINUOUS AUDIO SCRUBBER WITH THUMB KNOB */}
-          <View style={styles.scrubberContainer}>
+          {/* INTERACTIVE WAVEFORM AUDIO SCRUBBER */}
+          <View style={styles.waveformContainer}>
             <Pressable
-              onPress={(e) => {
-                const rect = (e.currentTarget as any)?.getBoundingClientRect?.();
-                if (rect) {
-                  const clickX = e.nativeEvent.pageX - rect.left;
-                  const pct = Math.max(0, Math.min(1, clickX / rect.width));
-                  seekToSec(Math.round(pct * podcast.totalSeconds));
-                }
-              }}
-              style={styles.scrubberHitbox}
+              onPress={handleWaveformSeek}
+              style={styles.waveformHitbox}
             >
-              <View style={styles.scrubberTrack}>
-                <View
-                  style={[
-                    styles.scrubberProgress,
-                    {
-                      width: `${Math.min(100, (currentSec / podcast.totalSeconds) * 100)}%`,
-                    },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.scrubberThumb,
-                    {
-                      left: `${Math.max(0, Math.min(97.5, (currentSec / podcast.totalSeconds) * 100))}%`,
-                    },
-                  ]}
-                />
+              <View style={styles.waveformBarsRow}>
+                {WAVEFORM_HEIGHTS.map((h, idx) => {
+                  const isActive = idx < activeBarsCount;
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.waveformBar,
+                        {
+                          height: h,
+                          backgroundColor: isActive ? '#5E5CE6' : '#E2E8F0',
+                        },
+                        isActive && idx === activeBarsCount - 1 && isPlaying && styles.waveformBarPlayingHead,
+                      ]}
+                    />
+                  );
+                })}
               </View>
             </Pressable>
 
-            {/* Time Indicators (Tabular Numbers) */}
-            <View style={styles.scrubberTimeRow}>
-              <Text style={styles.scrubberTimeText}>
+            {/* Time Indicators (Current Time & Total Duration) */}
+            <View style={styles.waveformTimeRow}>
+              <Text style={styles.waveformTimeCurrent}>
                 {formatTimer(currentSec)}
               </Text>
-              <Text style={styles.scrubberTimeText}>
-                -{formatTimer(Math.max(0, podcast.totalSeconds - currentSec))}
+              <Text style={styles.waveformTimeTotal}>
+                {formatTimer(podcast.totalSeconds)}
               </Text>
             </View>
           </View>
 
-          {/* APPLE PODCASTS TRANSPORT CONTROLS */}
-          <View style={styles.transportRow}>
-            {/* Skip Back 15s */}
+          {/* 5-BUTTON TRANSPORT CONTROLS ROW */}
+          <View style={styles.transportRowFive}>
+            {/* 1. Shuffle Button */}
+            <Pressable
+              onPress={toggleShuffle}
+              accessibilityLabel="Shuffle segments"
+              style={({ pressed }) => [
+                styles.transportSideButton,
+                isShuffle && styles.transportSideButtonActive,
+                pressed && { opacity: 0.5 },
+              ]}
+            >
+              <AppleShuffleIcon size={22} active={isShuffle} color={isShuffle ? '#5E5CE6' : '#1C1C1E'} />
+            </Pressable>
+
+            {/* 2. Skip Back 15s */}
             <Pressable
               onPress={() => skipSeconds(-15)}
               accessibilityLabel="Skip backward 15 seconds"
@@ -951,19 +1402,19 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
               <AppleSkip15Icon direction="back" size={32} color="#1C1C1E" />
             </Pressable>
 
-            {/* Primary Center Play / Pause Button */}
+            {/* 3. Primary Purple Center Play / Pause Button */}
             <Pressable
               onPress={togglePlay}
               accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
               style={({ pressed }) => [
-                styles.transportButtonPlay,
-                pressed && { transform: [{ scale: 0.94 }] },
+                styles.transportButtonPlayPurple,
+                pressed && { transform: [{ scale: 0.93 }] },
               ]}
             >
-              <ApplePlayPauseIcon isPlaying={isPlaying} size={30} color="#FFFFFF" />
+              <ApplePlayPauseIcon isPlaying={isPlaying} size={28} color="#FFFFFF" />
             </Pressable>
 
-            {/* Skip Forward 15s */}
+            {/* 4. Skip Forward 15s */}
             <Pressable
               onPress={() => skipSeconds(15)}
               accessibilityLabel="Skip forward 15 seconds"
@@ -974,9 +1425,22 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
             >
               <AppleSkip15Icon direction="forward" size={32} color="#1C1C1E" />
             </Pressable>
+
+            {/* 5. Repeat Button */}
+            <Pressable
+              onPress={() => setIsRepeat((prev) => !prev)}
+              accessibilityLabel="Repeat audio"
+              style={({ pressed }) => [
+                styles.transportSideButton,
+                isRepeat && styles.transportSideButtonActive,
+                pressed && { opacity: 0.5 },
+              ]}
+            >
+              <AppleRepeatIcon size={22} active={isRepeat} color={isRepeat ? '#5E5CE6' : '#1C1C1E'} />
+            </Pressable>
           </View>
 
-          {/* AUXILIARY BAR (Speed Toggle, Sleep Timer, New Topic) */}
+          {/* AUXILIARY BAR (Speed Toggle, Sleep Timer, Save, Notes, New Topic) */}
           <View style={styles.auxiliaryRow}>
             {/* Speed Toggle Pill */}
             <Pressable
@@ -1010,6 +1474,40 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
                   : sleepTimer === 'end'
                   ? 'End of Ep'
                   : `${Math.ceil(sleepTimer / 60)}m`}
+              </Text>
+            </Pressable>
+
+            {/* Favorite Pill */}
+            <Pressable
+              onPress={() => setIsFavorite((prev) => !prev)}
+              style={({ pressed }) => [
+                styles.actionPillSmall,
+                isFavorite && { backgroundColor: '#FEF3C7' },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <AppleStarIcon filled={isFavorite} size={13} color={isFavorite ? '#D97706' : '#8E8E93'} />
+              <Text style={[styles.actionPillSmallText, isFavorite && { color: '#D97706', fontWeight: '700' }]}>
+                {isFavorite ? 'Saved' : 'Save'}
+              </Text>
+            </Pressable>
+
+            {/* Copy Transcript Pill */}
+            <Pressable
+              onPress={handleCopyTranscript}
+              style={({ pressed }) => [
+                styles.actionPillSmall,
+                copied && { backgroundColor: '#DCFCE7' },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <Icon
+                name={copied ? 'checkmark' : 'doc.on.doc'}
+                size={12}
+                color={copied ? '#16A34A' : '#8E8E93'}
+              />
+              <Text style={[styles.actionPillSmallText, copied && { color: '#16A34A', fontWeight: '700' }]}>
+                {copied ? 'Copied' : 'Notes'}
               </Text>
             </Pressable>
 
@@ -1071,30 +1569,6 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
             </Pressable>
           </View>
 
-          {/* APPLE MUSIC LIVE LYRICS PREVIEW DRAWER */}
-          <Pressable
-            onPress={() => setViewTab('lyrics')}
-            style={({ pressed }) => [
-              styles.lyricsPreviewCard,
-              pressed && { opacity: 0.85 },
-            ]}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <AppleLyricsIcon active={false} color="#007AFF" />
-                <Text style={styles.lyricsPreviewLabel}>LIVE SCRIPT PREVIEW</Text>
-              </View>
-              <Text style={styles.lyricsTapHint}>Tap for Full Lyrics →</Text>
-            </View>
-
-            <Text style={styles.lyricsActiveLine} numberOfLines={2}>
-              "{podcast.segments[activeSegIdx]?.text || podcast.tagline}"
-            </Text>
-            <Text style={styles.lyricsActiveSpeaker}>
-              — {podcast.segments[activeSegIdx]?.speaker || 'Host'}
-            </Text>
-          </Pressable>
-
           {/* HIGH-YIELD TAKEAWAYS CARD */}
           <View style={styles.takeawaysCard}>
             <Text style={styles.takeawaysHeading}>EXAM TAKEAWAYS</Text>
@@ -1132,115 +1606,111 @@ export function AudioBitesScreen({ onBack, onAskTutor }: AudioBitesScreenProps) 
           </View>
         </ScrollView>
       ) : (
-        /* ==================== APPLE MUSIC LIVE LYRICS FULL SCREEN ==================== */
-        <View style={{ flex: 1 }}>
+        /* ==================== SPOTIFY FULL-SCREEN LIVE SCRIPT / LYRICS ==================== */
+        <View style={styles.spotifyLyricsContainer}>
           <ScrollView
             ref={lyricsScrollRef}
-            contentContainerStyle={styles.lyricsScroll}
+            contentContainerStyle={styles.spotifyLyricsScroll}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.lyricsScreenHeader}>LIVE TRANSCRIPT</Text>
-            <Text style={styles.lyricsScreenSub}>Tap any line to jump audio immediately</Text>
-
-            <View style={{ gap: 16, marginTop: 14 }}>
-              {podcast.segments.map((seg, idx) => {
-                const isActive = idx === activeSegIdx;
-                const isAlex = seg.speaker === 'Alex';
-                const isSam = seg.speaker === 'Sam';
-
-                return (
-                  <Pressable
-                    key={seg.id || idx}
-                    onPress={() => {
-                      seekToSec(seg.timeOffsetSec);
-                      if (!isPlaying) togglePlay();
-                    }}
-                    style={({ pressed }) => [
-                      styles.lyricRow,
-                      isActive && styles.lyricRowActive,
-                      pressed && { opacity: 0.7 },
+            {podcast.segments.map((seg, idx) => {
+              const isPastOrActive = idx <= activeSegIdx;
+              return (
+                <Pressable
+                  key={seg.id || idx}
+                  onPress={() => {
+                    seekToSec(seg.timeOffsetSec);
+                    if (!isPlaying) togglePlay();
+                  }}
+                  style={({ pressed }) => [
+                    styles.spotifyLyricLine,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.spotifyLyricText,
+                      isPastOrActive
+                        ? styles.spotifyLyricTextActive
+                        : styles.spotifyLyricTextUpcoming,
                     ]}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <View
-                        style={[
-                          styles.speakerBadge,
-                          {
-                            backgroundColor: isAlex
-                              ? '#DBEAFE'
-                              : isSam
-                              ? '#FEF3C7'
-                              : '#DCFCE7',
-                          },
-                        ]}
-                      >
-                        <Icon
-                          name={isAlex ? 'mic' : isSam ? 'sparkles' : 'graduationcap.fill'}
-                          size={11}
-                          color={isAlex ? '#2563EB' : isSam ? '#D97706' : '#16A34A'}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.speakerName,
-                          isActive && { color: '#007AFF', fontWeight: '700' },
-                        ]}
-                      >
-                        {seg.speaker}
-                      </Text>
-                      <Text style={styles.speakerTime}>
-                        {formatTimer(seg.timeOffsetSec)}
-                      </Text>
-                    </View>
-
-                    <Text
-                      style={[
-                        styles.lyricText,
-                        isActive && styles.lyricTextActive,
-                      ]}
-                    >
-                      {seg.text}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                    {seg.text}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
 
-          {/* STICKY APPLE MINI NOW-PLAYING DOCK */}
-          <View style={styles.miniDock}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.miniDockTitle} numberOfLines={1}>
-                {podcast.title}
-              </Text>
-              <Text style={styles.miniDockTime}>
-                {formatTimer(currentSec)} / {formatTimer(podcast.totalSeconds)}
+          {/* SPOTIFY ANCHORED BOTTOM SCRUBBER & CONTROLS */}
+          <View style={styles.spotifyBottomBar}>
+            {/* Interactive Progress Scrubber */}
+            <Pressable
+              onPress={handleSpotifySeek}
+              style={styles.spotifyScrubberHitbox}
+            >
+              <View style={styles.spotifyScrubberTrack}>
+                <View
+                  style={[
+                    styles.spotifyScrubberProgress,
+                    { width: `${Math.max(0, Math.min(100, progressPct * 100))}%` },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.spotifyScrubberThumb,
+                    { left: `${Math.max(0, Math.min(97, progressPct * 100))}%` },
+                  ]}
+                />
+              </View>
+            </Pressable>
+
+            {/* Scrubber Timestamps */}
+            <View style={styles.spotifyTimeRow}>
+              <Text style={styles.spotifyTimeText}>{formatTimer(currentSec)}</Text>
+              <Text style={styles.spotifyTimeText}>
+                -{formatTimer(Math.max(0, podcast.totalSeconds - currentSec))}
               </Text>
             </View>
 
-            {/* Play/Pause in Mini Dock */}
-            <Pressable
-              onPress={togglePlay}
-              style={({ pressed }) => [
-                styles.miniDockPlayBtn,
-                pressed && { transform: [{ scale: 0.94 }] },
-              ]}
-            >
-              <ApplePlayPauseIcon isPlaying={isPlaying} size={18} color="#FFFFFF" />
-            </Pressable>
+            {/* Controls: Artwork Switcher, Big White Play/Pause Circle, Share */}
+            <View style={styles.spotifyControlsRow}>
+              {/* Left: Switch back to Artwork/Player */}
+              <Pressable
+                onPress={() => setViewTab('player')}
+                accessibilityLabel="Return to artwork"
+                style={({ pressed }) => [
+                  styles.spotifySideControlBtn,
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <Icon name="waveform" size={20} color="#FFFFFF" />
+              </Pressable>
 
-            {/* Switch back to Artwork */}
-            <Pressable
-              onPress={() => setViewTab('player')}
-              style={({ pressed }) => [
-                styles.miniDockSwitchBtn,
-                pressed && { opacity: 0.6 },
-              ]}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#007AFF' }}>
-                Artwork
-              </Text>
-            </Pressable>
+              {/* Center: Large White Play/Pause Button with Purple Icon */}
+              <Pressable
+                onPress={togglePlay}
+                accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
+                style={({ pressed }) => [
+                  styles.spotifyPlayBtnWhite,
+                  pressed && { transform: [{ scale: 0.94 }] },
+                ]}
+              >
+                <ApplePlayPauseIcon isPlaying={isPlaying} size={26} color="#7856E3" />
+              </Pressable>
+
+              {/* Right: Share Button */}
+              <Pressable
+                onPress={handleCopyTranscript}
+                accessibilityLabel="Share transcript"
+                style={({ pressed }) => [
+                  styles.spotifySideControlBtn,
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <AppleShareIcon size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
           </View>
         </View>
       )}
@@ -1498,6 +1968,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F2F7', // Apple System Grouped Canvas Background
   },
+  canvasSpotify: {
+    backgroundColor: '#7856E3',
+  },
+  spotifyNavBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#7856E3',
+  },
+  spotifyNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotifyNavCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  spotifyNavTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: fontStack,
+    textAlign: 'center',
+  },
+  spotifyNavArtist: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontFamily: fontStack,
+    textAlign: 'center',
+    marginTop: 2,
+  },
   sheetHandle: {
     width: 36,
     height: 5,
@@ -1540,62 +2050,219 @@ const styles = StyleSheet.create({
     marginTop: 1,
     fontFamily: fontStack,
   },
+  studioNavPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: '#E5E5EA',
+  },
+  studioNavDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  studioNavPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: '#1C1C1E',
+  },
 
   /* Creation Screen */
   creationScroll: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 60,
   },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    letterSpacing: -0.1,
-    marginBottom: 8,
-    marginLeft: 6,
+  heroHeader: {
+    marginBottom: 18,
+    paddingHorizontal: 2,
+  },
+  heroEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  heroEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.0,
+    color: '#007AFF',
     textTransform: 'uppercase',
   },
-  insetCard: {
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: '#000000',
+    fontFamily: fontStack,
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: '#8E8E93',
+    fontFamily: fontStack,
+  },
+
+  /* 1. Elevated Studio Composer Card */
+  studioComposerCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 22,
+    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)',
+    borderColor: 'rgba(0, 0, 0, 0.05)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 16,
+    elevation: 2,
+    marginBottom: 26,
+  },
+  composerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  composerHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  composerMicBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  composerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    letterSpacing: -0.2,
+  },
+  composerDurationBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: '#F2F2F7',
+  },
+  composerDurationText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  composerInputContainer: {
+    backgroundColor: '#F6F6F9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    padding: 12,
+    marginBottom: 12,
+    position: 'relative',
   },
   topicTextInput: {
-    height: 75,
-    fontSize: 15,
-    lineHeight: 21,
+    minHeight: 68,
+    fontSize: 14,
+    lineHeight: 20,
     color: '#1C1C1E',
     fontFamily: fontStack,
     textAlignVertical: 'top',
     padding: 0,
+    paddingRight: 24,
     margin: 0,
+  },
+  clearInputBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Quick Inspiration Chips */
+  quickTagsContainer: {
+    marginBottom: 14,
+  },
+  quickTagsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  quickTagsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  quickTagPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    marginRight: 8,
+  },
+  quickTagPillActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  quickTagPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  quickTagPillTextActive: {
+    color: '#FFFFFF',
+  },
+
+  /* Format Selector */
+  formatSection: {
+    marginBottom: 14,
+  },
+  formatLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
   segmentedControl: {
     flexDirection: 'row',
     backgroundColor: '#E5E5EA',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 3,
-    gap: 3,
+    gap: 4,
   },
   segmentItem: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 9,
+    borderRadius: 11,
   },
   segmentItemActive: {
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
   },
@@ -1614,35 +2281,198 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     marginTop: 1,
   },
+
+  /* Primary Button */
   primaryAppleButton: {
-    backgroundColor: '#007AFF', // Apple System Blue
-    borderRadius: 14,
+    backgroundColor: '#007AFF',
+    borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#007AFF',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.28,
     shadowRadius: 10,
     elevation: 4,
   },
+  primaryAppleButtonDisabled: {
+    opacity: 0.45,
+    shadowOpacity: 0,
+  },
   primaryAppleButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
+
+  /* 2. Curated Discovery Section */
+  discoveryHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  discoveryTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  discoveryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9999,
+    backgroundColor: '#E5E5EA',
+  },
+  discoveryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  categoryScroll: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    marginBottom: 14,
+  },
+  categoryPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 9999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    marginRight: 8,
+  },
+  categoryPillActive: {
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
+  },
+  categoryPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  categoryPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* Spotlight Hero Card */
+  spotlightHeroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+    marginBottom: 16,
+  },
+  spotlightBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  spotlightStarPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 9999,
+    backgroundColor: '#FEF3C7',
+  },
+  spotlightStarText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#D97706',
+    letterSpacing: 0.6,
+  },
+  spotlightDurationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  spotlightDurationText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  spotlightTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
+  spotlightDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+    marginBottom: 14,
+  },
+  spotlightFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  spotlightHostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  hostAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotlightHostText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
+  spotlightPlayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1C1C1E',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9999,
+  },
+  spotlightPlayBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* Inset Grouped Table */
   insetGroupedTable: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)',
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     gap: 12,
   },
@@ -1651,33 +2481,72 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   tableRowIconSquare: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tableRowMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  metaSubjectPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
+  },
+  metaSubjectText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  metaDot: {
+    fontSize: 10,
+    color: '#C7C7CC',
+  },
+  metaDuration: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8E8E93',
+  },
+  metaHost: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8E8E93',
+  },
+  tableRowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    letterSpacing: -0.2,
+    marginBottom: 3,
+  },
+  tableRowSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#64748B',
+  },
+  tableRowPlayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tableRowTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  tableRowSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
 
   /* Player Screen */
   playerScroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 60,
   },
   albumArtContainer: {
-    width: '84%',
-    maxWidth: 290,
+    width: '100%',
     aspectRatio: 1,
     borderRadius: 28,
     overflow: 'hidden',
@@ -1693,45 +2562,45 @@ const styles = StyleSheet.create({
   },
   albumAuroraTop: {
     position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    top: -50,
+    right: -50,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: 'rgba(99, 102, 241, 0.45)',
   },
   albumAuroraBottom: {
     position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    bottom: -40,
+    left: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     backgroundColor: 'rgba(6, 182, 212, 0.35)',
   },
   artworkInnerStack: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     zIndex: 2,
   },
   artworkIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   artworkTitle: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
     letterSpacing: -0.4,
-    lineHeight: 22,
+    lineHeight: 25,
   },
   artworkSubjectPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
@@ -1760,90 +2629,100 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
   },
 
-  /* Titles */
-  titleStack: {
-    flexDirection: 'row',
+  /* Titles (Centered Style with Verified Badge) */
+  titleStackCentered: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+    justifyContent: 'center',
+    marginTop: 14,
+    marginBottom: 6,
+    paddingHorizontal: 20,
   },
-  episodeTitle: {
-    fontSize: 21,
-    fontWeight: '700',
+  episodeTitleCentered: {
+    fontSize: 22,
+    fontWeight: '800',
     letterSpacing: -0.5,
-    color: '#000000',
+    color: '#1C1C1E',
     fontFamily: fontStack,
+    textAlign: 'center',
+    lineHeight: 28,
   },
-  episodeSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#8E8E93',
-    marginTop: 4,
-    fontFamily: fontStack,
-  },
-  iconCircleAction: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E5E5EA',
+  channelRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  /* Apple Scrubber */
-  scrubberContainer: {
-    marginBottom: 24,
-  },
-  scrubberHitbox: {
-    height: 22,
-    justifyContent: 'center',
-  },
-  scrubberTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E5EA',
-    width: '100%',
-    position: 'relative',
-  },
-  scrubberProgress: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#1C1C1E',
-  },
-  scrubberThumb: {
-    position: 'absolute',
-    top: -3.5,
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
-    backgroundColor: '#1C1C1E',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  scrubberTimeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 6,
     marginTop: 6,
   },
-  scrubberTimeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#8E8E93',
-    fontVariant: ['tabular-nums'],
+  channelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+    fontFamily: fontStack,
   },
 
-  /* Native Apple Transport Controls */
-  transportRow: {
+  /* Waveform Scrubber */
+  waveformContainer: {
+    marginVertical: 18,
+    paddingHorizontal: 4,
+  },
+  waveformHitbox: {
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  waveformBarsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    height: 48,
+  },
+  waveformBar: {
+    width: 3.5,
+    borderRadius: 9999,
+    minHeight: 8,
+  },
+  waveformBarPlayingHead: {
+    backgroundColor: '#7C3AED',
+    transform: [{ scaleY: 1.15 }],
+  },
+  waveformTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+  waveformTimeCurrent: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.2,
+  },
+  waveformTimeTotal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.2,
+  },
+
+  /* 5-Button Transport Controls */
+  transportRowFive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 8,
+    marginVertical: 14,
+  },
+  transportSideButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transportSideButtonActive: {
+    backgroundColor: 'rgba(94, 92, 230, 0.12)',
   },
   transportButtonSecondary: {
     width: 48,
@@ -1851,17 +2730,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  transportButtonPlay: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1C1C1E',
+  transportButtonPlayPurple: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: '#5E5CE6', // Vibrant Apple Purple
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#5E5CE6',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
+    shadowOpacity: 0.38,
+    shadowRadius: 16,
     elevation: 6,
   },
 
@@ -1869,9 +2748,25 @@ const styles = StyleSheet.create({
   auxiliaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 6,
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 6,
     marginBottom: 20,
+    flexWrap: 'wrap',
+  },
+  actionPillSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 9999,
+    backgroundColor: '#E5E5EA',
+  },
+  actionPillSmallText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1C1C1E',
   },
   speedPill: {
     paddingVertical: 5,
@@ -1975,43 +2870,94 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
   },
 
-  /* Live Lyrics Preview Drawer */
-  lyricsPreviewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-    marginBottom: 16,
-  },
-  lyricsPreviewLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    color: '#007AFF',
-  },
-  lyricsTapHint: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  lyricsActiveLine: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    lineHeight: 21,
-    fontFamily: fontStack,
-  },
-  lyricsActiveSpeaker: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#8E8E93',
+  /* Container-less Inline Live Lyrics Section (Strictly NO Background) */
+  inlineLyricsContainer: {
+    width: '100%',
+    minHeight: 220,
+    maxHeight: 280,
     marginTop: 4,
+    marginBottom: 16,
+    backgroundColor: 'transparent',
+  },
+  inlineLyricsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  inlineLyricsBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveIndicatorDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  inlineLyricsBadge: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  fullScreenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  fullScreenButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#007AFF',
+    letterSpacing: -0.2,
+  },
+  inlineLyricsScrollView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  inlineLyricsScrollContent: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  inlineLyricLine: {
+    paddingVertical: 6,
+    backgroundColor: 'transparent',
+  },
+  inlineLyricText: {
+    fontFamily: fontStack,
+    fontSize: 18,
+    lineHeight: 26,
+    color: '#8E8E93',
+  },
+  inlineLyricTextActive: {
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    letterSpacing: -0.3,
+  },
+  inlineLyricTextPast: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '600',
+    color: '#8E8E93',
+    opacity: 0.65,
+  },
+  inlineLyricTextUpcoming: {
+    fontSize: 18,
+    lineHeight: 25,
+    fontWeight: '700',
+    color: '#8E8E93',
+    opacity: 0.45,
   },
 
   /* Takeaways Card */
@@ -2062,115 +3008,113 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
   },
 
-  /* Live Lyrics Screen */
-  lyricsScroll: {
-    padding: 24,
-    paddingBottom: 90,
+  /* Spotify Full-Screen Live Lyrics Screen */
+  spotifyLyricsContainer: {
+    flex: 1,
+    backgroundColor: '#7856E3',
   },
-  lyricsScreenHeader: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    color: '#8E8E93',
+  spotifyLyricsScroll: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 170,
   },
-  lyricsScreenSub: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
+  spotifyLyricLine: {
+    paddingVertical: 10,
+    marginVertical: 2,
+    borderRadius: 8,
   },
-  lyricRow: {
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-  },
-  lyricRowActive: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  speakerBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  speakerName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  speakerTime: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#C7C7CC',
-    marginLeft: 'auto',
-  },
-  lyricText: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '500',
-    color: '#8E8E93',
+  spotifyLyricText: {
+    fontSize: 24,
+    lineHeight: 34,
+    fontWeight: '800',
     fontFamily: fontStack,
-    opacity: 0.45,
+    letterSpacing: -0.3,
   },
-  lyricTextActive: {
-    fontSize: 18,
-    lineHeight: 26,
-    fontWeight: '700',
-    color: '#000000',
-    opacity: 1,
+  spotifyLyricTextActive: {
+    color: '#FFFFFF',
+  },
+  spotifyLyricTextUpcoming: {
+    color: '#22123D',
   },
 
-  /* Mini Dock (Bottom Sticky) */
-  miniDock: {
+  /* Spotify Anchored Bottom Bar */
+  spotifyBottomBar: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
+    backgroundColor: '#7856E3',
+  },
+  spotifyScrubberHitbox: {
+    paddingVertical: 8,
+  },
+  spotifyScrubberTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  spotifyScrubberProgress: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  spotifyScrubberThumb: {
+    position: 'absolute',
+    top: -4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  spotifyTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  spotifyTimeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontFamily: fontStack,
+  },
+  spotifyControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  miniDockTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  miniDockTime: {
-    fontSize: 11,
-    color: '#8E8E93',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
     marginTop: 2,
   },
-  miniDockPlayBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#1C1C1E',
+  spotifySideControlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  miniDockSwitchBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: '#F2F2F7',
+  spotifyPlayBtnWhite: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   /* Action Sheets & Modals */
