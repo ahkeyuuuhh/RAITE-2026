@@ -121,11 +121,10 @@ const html = `<!DOCTYPE html>
       ${url}
     </div>
     <div class="accounts">
-      <h3>Quick Demo Accounts</h3>
-      <div><strong>Teacher:</strong> teacher@classassist.demo <span class="badge">Teacher</span></div>
+      <h3>Quick Demo Account</h3>
       <div><strong>Student:</strong> student@classassist.demo <span class="badge">Student</span></div>
       <div style="margin-top: 6px;"><strong>Password:</strong> ClassAssist-demo-2026!</div>
-      <div style="margin-top: 8px; color: #8E8E93; font-size: 12px;">* Also available via one-tap "Demo Teacher" / "Demo Student" buttons on the app sign-in screen.</div>
+      <div style="margin-top: 8px; color: #8E8E93; font-size: 12px;">* Also available via one-tap "Student Demo" button on the app sign-in screen.</div>
     </div>
   </div>
 </body>

@@ -2353,7 +2353,7 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                   bottom: 12,
                   left: 4,
                   zIndex: 1000,
-                  width: 250,
+                  width: 256,
                   backgroundColor: '#1E2025',
                   borderRadius: 18,
                   borderWidth: 1,
@@ -2396,13 +2396,13 @@ export function StudentAgentScreen({ onBack }: { onBack?: () => void } = {}) {
                 ]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Icon name="doc.text" size={17} color="#60A5FA" />
+                  <Icon name="doc.text" size={17} color="#FFFFFF" />
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 }}>
                     Upload Document
                   </Text>
                 </View>
                 <Text style={{ fontSize: 12, fontWeight: '500', color: '#9CA3AF' }}>
-                  PDF, PPT, DOCX
+                  PDF, DOCX
                 </Text>
               </Pressable>
 

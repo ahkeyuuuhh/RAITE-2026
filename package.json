@@ -9,6 +9,8 @@
     "apps/api"
   ],
   "scripts": {
+    "start": "expo start",
+    "start:prod": "expo start --no-dev",
     "dev": "concurrently -k -n api,worker \"npm run dev -w apps/api\" \"npm run worker -w apps/api\"",
     "mobile": "npm run start -w apps/mobile",
     "mobile:tunnel": "npm run tunnel -w apps/mobile",
